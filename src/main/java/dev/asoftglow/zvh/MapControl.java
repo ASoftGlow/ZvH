@@ -95,21 +95,19 @@ public class MapControl {
 
         // setBlock at (dX,dZ)
         Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
-            "setblock " + dX + " " + y + " " + dZ + " minecraft:stone");
+            "setblock " + dX + " " + y + " " + dZ + " " + material);
       }
     }
   }
 
   // generate a zombie safe zone in the map
   public static void genZSafe(Vector3 pos, int radius) {
-    fill(pos.getBlockX() - radius, pos.getBlockY(), pos.getBlockZ() - radius, pos.getBlockX() + radius, pos.getBlockY(),
-        pos.getBlockZ() + radius, "light_gray_concrete_powder");
-    circle(pos.getBlockX(), pos.getBlockY(), pos.getBlockZ(), radius, "stone", false, radius * radius * 3);
+    circle(pos.getBlockX(), pos.getBlockY(), pos.getBlockZ(), radius, "light_gray_concrete_powder", false, radius * radius * 3);
   }
 
   public static void fill(int x1, int y1, int z1, int x2, int y2, int z2, String material) {
     Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
         "fill " + x1 + " " + y1 + " " + z1 + " " + x2 + " " + y2
-            + " " + z2 + " minecraft:stone");
+            + " " + z2 + " " + material);
   }
 }
