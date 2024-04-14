@@ -1,0 +1,8 @@
+classes:
+  - name: Zombie
+    icon: ZOMBIE_HEAD
+    price: 0
+
+  - name: Skeleton
+    icon: SKELETON_HEAD
+    price: 10

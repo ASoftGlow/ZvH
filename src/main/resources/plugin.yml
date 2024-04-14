@@ -1,0 +1,28 @@
+main: ${PACKAGE}.${NAME}
+name: ${NAME}
+version: "${VERSION}"
+api-version: "1.16"
+author: ASoftGlow
+description: DESCRIPTION
+depend: ["GuiLib", "FastAsyncWorldEdit"]
+commands:
+  class:
+    description: Opens class switcher
+  zvh:
+    description: Base command for ZvH
+    permission: admin.manage.serverpermission
+  leave:
+    aliases: l
+    description: Exits the arena
+  resetmap:
+    description: idk
+
+permissions:
+  example.test:
+    description: DESCRIPTION
+    default: true
+  example.*:
+    description: Grants all other permissions
+    default: false
+    children:
+      example.test: true

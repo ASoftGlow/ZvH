@@ -1,0 +1,103 @@
+import java.text.SimpleDateFormat
+
+plugins {
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'java'
+}
+
+group = "dev.asoftglow.zvh"
+
+static def getTime() {
+    SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd-HHmm")
+    sdf.setTimeZone(TimeZone.getTimeZone("UTC"))
+    return sdf.format(new Date()).toString()
+}
+
+// Set version to version property if supplied
+String shortVersion = null
+if (hasProperty('ver')) {
+    if (ver.charAt(0) == "v") {
+        shortVersion = ver.substring(1).toUpperCase()
+    } else {
+        shortVersion = ver.toUpperCase()
+    }
+}
+
+// If the tag includes "-RC-" or no tag is supplied, append "-SNAPSHOT"
+int rcIdx
+if (shortVersion == null || shortVersion == "") {
+    version = getTime() + "-SNAPSHOT"
+} else if ((rcIdx = shortVersion.indexOf("-RC-")) != -1) {
+    version = shortVersion.substring(0, rcIdx) + "-SNAPSHOT"
+} else {
+    version = shortVersion
+}
+version = "build"
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    maven {
+        name 'papermc'
+        url 'https://repo.papermc.io/repository/maven-public/'
+        content {
+            includeModule("io.papermc.paper", "paper-api")
+            includeModule("io.papermc", "paperlib")
+            includeModule("net.md-5", "bungeecord-chat")
+        }
+    }
+
+    maven { url 'https://repo.codemc.io/repository/maven-releases/' }
+    maven { url 'https://maven.enginehub.org/repo/' }
+
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'fr.mrmicky:fastboard:2.1.0'
+    compileOnly 'xyz.janboerman:GuiLib-Plugin:1.11.9'
+    compileOnly 'io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT'
+    implementation(platform("com.intellectualsites.bom:bom-newest:1.43")) // Ref: https://github.com/IntellectualSites/bom 
+    compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core")
+    compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Bukkit")
+    implementation 'io.papermc:paperlib:1.0.8'
+}
+
+processResources {
+    filesMatching("**/plugin.yml") {
+        expand ( NAME: rootProject.name, VERSION: version, PACKAGE: project.group.toString() )
+    }
+}
+
+shadowJar {
+    archiveClassifier.set('')
+    relocate 'io.papermc.lib', 'shadow.io.papermc.paperlib'
+    relocate 'fr.mrmicky.fastboard', 'dev.asoftglow.zvh.fastboard'
+    minimize()
+}
+
+// Disable jar and replace with shadowJar
+jar.enabled = false
+assemble.dependsOn(shadowJar)
+
+tasks.register('printProjectName') {
+    doLast {
+        println rootProject.name
+    }
+}
+
+tasks.register('release') {
+    dependsOn build
+
+    doLast {
+        if (!version.endsWith("-SNAPSHOT")) {
+            // Rename final JAR to trim off version information
+            shadowJar.archiveFile.get().getAsFile()
+                    .renameTo(layout.buildDirectory.get().toString() + File.separator + 'libs' + File.separator
+                            + rootProject.name + '.jar')
+        }
+    }
+}
