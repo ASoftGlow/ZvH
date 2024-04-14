@@ -1,8 +1,1 @@
-classes:
-  - name: Zombie
-    icon: ZOMBIE_HEAD
-    price: 0
-
-  - name: Skeleton
-    icon: SKELETON_HEAD
-    price: 10
+# A journey of 1,000 lines starts with a single char

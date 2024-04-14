@@ -4,19 +4,16 @@ version: "${VERSION}"
 api-version: "1.16"
 author: ASoftGlow
 description: DESCRIPTION
-depend: ["GuiLib", "FastAsyncWorldEdit"]
+depend: ["GuiLib"]
 commands:
+  ex:
+    description: Base command for EXAMPLE
+    usage: "For a list of commands, type /ex help"
+    aliases: example
   class:
     description: Opens class switcher
-  zvh:
-    description: Base command for ZvH
-    permission: admin.manage.serverpermission
-  leave:
-    aliases: l
-    description: Exits the arena
-  resetmap:
-    description: idk
-
+  resetMap:
+    description: Resets the map
 permissions:
   example.test:
     description: DESCRIPTION

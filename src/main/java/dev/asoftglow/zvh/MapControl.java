@@ -1,115 +1,166 @@
 package dev.asoftglow.zvh;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.entity.Player;
 
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
-import com.sk89q.worldedit.math.BlockVector3;
-import com.sk89q.worldedit.math.Vector3;
-import com.sk89q.worldedit.regions.CuboidRegion;
-import com.sk89q.worldedit.regions.Region;
-
-@SuppressWarnings("null")
 public class MapControl {
 
-  public record MapSize(
-      int[] bounds,
-      int min,
-      Vector3 zombieSpawn,
-      Vector3 humanSpawn) {
-  }
+    // stores the two corners of the game arena (x1,z1,x2,z2,y)
+    final static int[] bounds = { -49, 16, 53, 68, 1 };
 
-  // stores the two corners of the game arena (x1,z1,x2,z2,y)
-  static int[] b;
-  private static int last_size = -1;
-  final public static MapSize[] mapSizes = {
-      new MapSize(new int[] { -47, 16, 52, 68, 1 }, 4, Vector3.at(40, 2, 40), Vector3.at(-40, 2, 40))
-  };
+    // draws a circle, in a block game!
+    public static void circle(int x, int y, int z, int radius, String material, boolean filled, int precision){
 
-  public static Location getLocation(Player player, Vector3 pos) {
-    return new Location(player.getWorld(), pos.getX(), pos.getY(), pos.getZ());
-  }
+        double angle = 0;
 
-  public static void resetBorders() {
-    // Walls
-    ZvH.editSession.setBlocks((Region) new CuboidRegion(
-        BlockVector3.at(b[0], b[4] - 1, b[1]),
-        BlockVector3.at(b[2], b[4] + 30, b[3])).getFaces(),
-        BukkitAdapter.asBlockType(Material.BARRIER).getDefaultState());
+        // Loop through points around the circle
+        for (int i = 0; i < precision; i++){
 
-    // Floor
-    ZvH.editSession.setBlocks((Region) new CuboidRegion(
-        BlockVector3.at(b[0], b[4], b[1]),
-        BlockVector3.at(b[2], b[4], b[3])).getWalls(),
-        BukkitAdapter.asBlockType(Material.SMOOTH_QUARTZ).getDefaultState());
+            // update angle
+            angle += 2 * Math.PI / precision;
 
-    ZvH.editSession.setBlocks((Region) new CuboidRegion(
-        BlockVector3.at(b[0] + 1, b[4], b[1] + 1),
-        BlockVector3.at(b[2] - 1, b[4], b[3] - 1)),
-        BukkitAdapter.asBlockType(Material.GRAY_CONCRETE_POWDER).getDefaultState());
-  }
+            // get coords of nearest block
+            int dX = x + (int) Math.round(radius * Math.cos(angle));
+            int dZ = z + (int) Math.round(radius * Math.sin(angle));
 
-  public static void resetMap(int size) {
-    b = mapSizes[size].bounds;
+            if (filled == true){
 
-    // Clear building space
-    ZvH.editSession.setBlocks((Region) new CuboidRegion(
-        BlockVector3.at(b[0] + 1, b[4] + 1, b[1] + 1),
-        BlockVector3.at(b[2] - 1, b[4] + 30, b[3] - 1)),
-        BukkitAdapter.asBlockType(Material.AIR).getDefaultState());
+                // fill in between (dX,dZ) and (x,y)
+                fill(x, y, z, dX, y, dZ, material);
 
-    if (last_size != size) {
-      last_size = size;
-      resetBorders();
-      genZSafe(mapSizes[size].zombieSpawn, 4);
-      genZSafe(mapSizes[size].humanSpawn, 6);
-      circle(-37, 1, 42, 6, "stone", false, 36 * 3);
+            } else {
+
+                // setBlock at (dX,dZ)
+                Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
+                "setblock " + dX + " " + y + " " + dZ + " " + material);
+            }
+        }
+
     }
 
-    ZvH.editSession.flushQueue();
-  }
+    // generate a zombie safe zone in the map
+    public static void genZSafe(int x, int y, int z, int radius){
+        circle(x, y, z, radius, "stone"/*"light_gray_concrete_powder"*/, true, radius * radius * 3);
+    }
 
-  // draws a circle, in a block game!
-  public static void circle(int x, int y, int z, int radius, String material, boolean filled, int precision) {
+    // set the corners of the game arena
+    public static void setBounds(int x1, int z1, int x2, int z2, int y) {
+        bounds[0] = x1;
+        bounds[1] = z1;
+        bounds[2] = x2;
+        bounds[3] = z2;
+        bounds[4] = y;
+    }
 
-    double angle = 0;
-
-    // Loop through points around the circle
-    for (int i = 0; i < precision; i++) {
-
-      // update angle
-      angle += 2 * Math.PI / precision;
-
-      // get coords of nearest block
-      int dX = x + (int) Math.round(radius * Math.cos(angle));
-      int dZ = z + (int) Math.round(radius * Math.sin(angle));
-
-      if (filled == true) {
-
-        // fill in between (dX,dZ) and (x,y)
-        fill(x, y, z, dX, y, dZ, material);
-
-      } else {
-
-        // setBlock at (dX,dZ)
+    //vanilla fill
+    public static void fill(int x1, int y1, int z1, int x2, int y2, int z2, String material){
         Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
-            "setblock " + dX + " " + y + " " + dZ + " minecraft:stone");
-      }
+                "fill " + x1 + " " + y1 + " " + z1 + " " + x2 + " " + y2
+                        + " " + z2 + material);
     }
-  }
 
-  // generate a zombie safe zone in the map
-  public static void genZSafe(Vector3 pos, int radius) {
-    fill(pos.getBlockX() - radius, pos.getBlockY(), pos.getBlockZ() - radius, pos.getBlockX() + radius, pos.getBlockY(),
-        pos.getBlockZ() + radius, "light_gray_concrete_powder");
-    circle(pos.getBlockX(), pos.getBlockY(), pos.getBlockZ(), radius, "stone", false, radius * radius * 3);
-  }
+    // fill in columns to avoid the max fill size
+    public static void infFill(int x1, int y1, int z1, int x2, int y2, int z2, String material){
+        
+        // Calculate best fill column size
+        int maxProduct = Math.round(32768 / (y2 - y1));
+        int maxX = (x2 - x1);
+        int maxZ = (z2 - z1);
+        int columnX = 1;
+        int columnZ = 1;
+        
+        for (int i = 1; i <= maxX || i <= maxZ; i++) {
+            
+            // X gets highest priority
+            if (maxX % i == 0 && (i * columnZ) <= maxProduct) {
+                columnX = i;
+            }
 
-  public static void fill(int x1, int y1, int z1, int x2, int y2, int z2, String material) {
-    Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
-        "fill " + x1 + " " + y1 + " " + z1 + " " + x2 + " " + y2
-            + " " + z2 + " minecraft:stone");
-  }
+            // Z gets lower priority
+            if (maxZ % i == 0 && (i * columnX) <= maxProduct) {
+                columnZ = i;
+            }
+        }
+
+        // Iterate through all layers
+        for (int z = z1; z < z2; z += columnZ){
+                
+            // Iterate through all columns
+            for (int x = x1; x < x2; x += columnX){
+                
+                fill(x, y1, z, (x + columnX), y2, (z + columnZ), material);
+            }
+        }
+    }
+
+    // clone in columns to avoid the max clone size
+    public static void infClone(int x1, int y1, int z1, int x2, int y2, int z2, int x3, int y3, int z3){
+        
+        // Calculate best clone column size
+        int maxProduct = Math.round(32768 / (y2 - y1));
+        int maxX = (x2 - x1);
+        int maxZ = (z2 - z1);
+        int columnX = 1;
+        int columnZ = 1;
+        
+        for (int i = 1; i <= maxX || i <= maxZ; i++) {
+            
+            // X gets highest priority
+            if (maxX % i == 0 && (i * columnZ) <= maxProduct) {
+                columnX = i;
+            }
+
+            // Z gets lower priority
+            if (maxZ % i == 0 && (i * columnX) <= maxProduct) {
+                columnZ = i;
+            }
+        }
+
+        // vars
+        int zC;
+        int xC;
+
+        // Iterate through all layers
+        for (int z = z1; z < z2; z += columnZ){
+            zC = z3 + z - z1;
+
+            // Iterate through all columns
+            for (int x = x1; x < x2; x += columnX){
+                xC = x3 + x - x1;
+
+                // Send clone command
+                Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
+                    "clone %d %d %d %d %d %d %d %d %d replace".formatted(
+                    x, y1, z,
+                    (x + columnX), y2, (z + columnZ),
+                    xC, y3, zC));
+            }
+        }
+    }
+
+    // reset the game map based on the bounds defined by setBounds
+    public static void resetMap() {
+        
+        // Clear building space
+        infFill(bounds[0], bounds[4] + 1, bounds[1], bounds[2], bounds[4] + 30, bounds[3], "air");
+        
+        // Floor
+        fill(bounds[0], bounds[4] - 1, bounds[1], bounds[2], bounds[4] - 1, bounds[3], "stone");
+        fill(bounds[0], bounds[4], bounds[1], bounds[2], bounds[4], bounds[3], "gray_concrete_powder");
+
+        // Border
+        fill(bounds[0], bounds[4], bounds[1], bounds[0], bounds[4], bounds[3], "smooth_quartz");
+        fill(bounds[0], bounds[4], bounds[3], bounds[2], bounds[4], bounds[3], "smooth_quartz");
+        fill(bounds[2], bounds[4], bounds[3], bounds[2], bounds[4], bounds[1], "smooth_quartz");
+        fill(bounds[2], bounds[4], bounds[1], bounds[0], bounds[4], bounds[1], "smooth_quartz");
+        
+        // Barriers
+        fill(bounds[0], bounds[4] + 1, bounds[1], bounds[0], bounds[4] + 31, bounds[3], "barrier");
+        fill(bounds[0], bounds[4] + 1, bounds[3], bounds[2], bounds[4] + 31, bounds[3], "barrier");
+        fill(bounds[2], bounds[4] + 1, bounds[3], bounds[2], bounds[4] + 31, bounds[1], "barrier");
+        fill(bounds[2], bounds[4] + 1, bounds[1], bounds[0], bounds[4] + 31, bounds[1], "barrier");
+        fill(bounds[0], bounds[4] + 31, bounds[1], bounds[2], bounds[4] + 31, bounds[3], "barrier");
+
+        // Generate zombie safe zone
+        genZSafe(37, 1, 42, 6);
+    }
 }
