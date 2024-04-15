@@ -8,10 +8,13 @@ import java.util.Stack;
 
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 
 import dev.asoftglow.zvh.commands.ClassSelectionMenu;
@@ -23,8 +26,9 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
+import xyz.janboerman.guilib.api.ItemBuilder;
 
-public class Game {
+public abstract class Game {
   private static final int REQUIRED_PLAYERS = 1;
   private static final int SURIVAL_TIME = 60 * 5;
   private static HashMap<Player, FastBoard> boards = new HashMap<>();
@@ -47,18 +51,12 @@ public class Game {
   private static final Title humans_win_title = Title.title(
       Component.text("Humans").style(human_style),
       Component.text("have won!"));
-  private static final Style msg_style = Style.style(NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD);
+  public static final ItemStack spec_leave_item = new ItemBuilder(Material.BARRIER).name("Click to leave").build();
 
   private static Set<Player> last_zombies = new HashSet<>();
   private static Set<Player> playing = new HashSet<>();
   private static boolean active = false;
   private static int game_time;
-
-  public static void sendServerMsg(String content) {
-    var c = Component.text("> ").append(Component.text(content).style(msg_style));
-    for (var p : Bukkit.getOnlinePlayers())
-      p.sendMessage(c);
-  }
 
   public static boolean isActive() {
     return active;
@@ -67,7 +65,7 @@ public class Game {
   public static void joinWaiters(Player player) {
     ZvH.waitersTeam.addPlayer(player);
     if (ZvH.waitersTeam.getEntries().size() == REQUIRED_PLAYERS) {
-      sendServerMsg("A game is starting soon!");
+      Util.sendServerMsg("A game is starting soon!");
       startCountDown();
     } else
       updateBoards();
@@ -82,10 +80,18 @@ public class Game {
   }
 
   public static void joinSpectators(Player player) {
-
+    leaveWaiters(player);
+    player.getInventory().clear();
+    player.setItemOnCursor(null);
+    player.getInventory().setItem(8, spec_leave_item);
+    Util.givePotionEffect(player, new PotionEffect(PotionEffectType.SPEED, -1, 2));
+    player.teleport(new Location(player.getWorld(), 0, 32, 42, 0f, 90f));
   }
 
   public static void leaveSpectators(Player player) {
+    player.getInventory().clear();
+    player.clearActivePotionEffects();
+    player.setGameMode(GameMode.ADVENTURE);
     player.teleport(ZvH.worldSpawnLocation);
   }
 
@@ -207,7 +213,7 @@ public class Game {
       updateTime();
     }, 0, 20));
 
-    sendServerMsg("A game has started.");
+    Util.sendServerMsg("A game has started.");
   }
 
   public static void stop() {
@@ -220,7 +226,7 @@ public class Game {
     playing.clear();
 
     updateBoards();
-    sendServerMsg("This game has ended.");
+    Util.sendServerMsg("This game has ended.");
   }
 
   public static void updateBoards() {

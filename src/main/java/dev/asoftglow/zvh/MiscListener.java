@@ -1,22 +1,28 @@
 package dev.asoftglow.zvh;
 
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.entity.SlimeSplitEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 import dev.asoftglow.zvh.commands.ClassSelectionMenu;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
@@ -83,6 +89,8 @@ public class MiscListener implements Listener {
     if (!(Game.playerIsPlaying(shooter) && Game.playerIsPlaying(victim)))
       return;
 
+    if (!(ZvH.humansTeam.hasPlayer(shooter) && ThreadLocalRandom.current().nextInt(11) == 0))
+      return;
     shooter.getInventory().addItem(new ItemStack(Material.ARROW));
   }
 
@@ -93,34 +101,22 @@ public class MiscListener implements Listener {
   }
 
   @EventHandler
-  public void onClickNpc(PrePlayerAttackEntityEvent e) {
-    onClickNpc(e, e.getAttacked());
+  public void onAttackNpc(PrePlayerAttackEntityEvent e) {
+    if (e.getAttacked().getType() == EntityType.SLIME)
+      e.setCancelled(true);
+    else
+      onClickNpc(e, e.getAttacked());
   }
 
   @EventHandler
   public void onInteractNpc(PlayerInteractAtEntityEvent e) {
     if (e.getHand().equals(EquipmentSlot.HAND) && e.getPlayer().getGameMode() != GameMode.SPECTATOR) {
-      e.getPlayer().swingMainHand();
-      onClickNpc(e, e.getRightClicked());
+      if (e.getRightClicked() instanceof Player)
+        e.getPlayer().swingMainHand();
+      else
+        onClickNpc(e, e.getRightClicked());
     }
   }
-
-  // @EventHandler
-  // public void onArmor(PlayerArmorChangeEvent e) {
-  // if (e.getPlayer().getGameMode() != GameMode.CREATIVE &&
-  // e.getNewItem().getType() == Material.AIR) {
-  // var inv = e.getPlayer().getInventory();
-  // Consumer<ItemStack> m = switch (e.getSlotType()) {
-  // case CHEST -> inv::setChestplate;
-  // case FEET -> inv::setBoots;
-  // case HEAD -> inv::setHelmet;
-  // case LEGS -> inv::setLeggings;
-  // };
-  // m.accept(e.getOldItem());
-  // inv.remove(e.getOldItem());
-  // e.getPlayer().setItemOnCursor(null);
-  // }
-  // }
 
   public <E extends PlayerEvent & Cancellable> void onClickNpc(E e, Entity target) {
     if (!Game.playerIsPlaying(e.getPlayer())) {
@@ -159,5 +155,19 @@ public class MiscListener implements Listener {
         e.setCancelled(true);
       }
     }
+  }
+
+  @EventHandler
+  public void onItemInteract(PlayerInteractEvent e) {
+    if (e.getAction() == Action.RIGHT_CLICK_AIR || e.getAction() == Action.RIGHT_CLICK_BLOCK) {
+      if (e.getItem() != null && e.getItem().equals(Game.spec_leave_item)) {
+        Game.leaveSpectators(e.getPlayer());
+      }
+    }
+  }
+
+  @EventHandler
+  public void onSlimeSplit(SlimeSplitEvent e) {
+    e.setCancelled(true);
   }
 }

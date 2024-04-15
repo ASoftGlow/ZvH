@@ -11,10 +11,17 @@ import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.potion.PotionEffect;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.Style;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
-public class Util {
+public abstract class Util {
+  private static final Style msg_style = Style.style(NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD);
+
   public static Entity findEntity(String name, World world) {
     PlainTextComponentSerializer plainSerializer = PlainTextComponentSerializer.plainText();
     for (var entity : world.getEntities()) {
@@ -54,5 +61,18 @@ public class Util {
         .findAny().get();
     set.remove(choice);
     return choice;
+  }
+
+  public static void givePotionEffect(Player player, PotionEffect e) {
+    player.getServer().dispatchCommand(player.getServer().getConsoleSender(),
+        // Can't disable potion particles without manual packet modification
+        "effect give %s %s infinite %d true".formatted(player.getName(), e.getType().key().asString(),
+            e.getAmplifier()));
+  }
+
+  public static void sendServerMsg(String content) {
+    var c = Component.text("> ").append(Component.text(content).style(msg_style));
+    for (var p : Bukkit.getOnlinePlayers())
+      p.sendMessage(c);
   }
 }

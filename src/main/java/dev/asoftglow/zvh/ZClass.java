@@ -6,6 +6,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
+import dev.asoftglow.zvh.util.Util;
+
 public class ZClass {
   @NotNull
   public final String name;
@@ -28,8 +30,6 @@ public class ZClass {
   public void give(@NotNull Player player) {
     player.getInventory().setContents(items);
     for (var e : effects)
-      player.getServer().dispatchCommand(player.getServer().getConsoleSender(),
-          // Can't disable potion particles without manual packet modification
-          "effect give %s %s infinite %d true".formatted(player.getName(), e.getType().key().asString(), e.getAmplifier()));
+      Util.givePotionEffect(player, e);
   }
 }

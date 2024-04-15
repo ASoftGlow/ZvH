@@ -25,14 +25,14 @@ public class ClassSelectionMenu implements CommandExecutor, Listener {
 
   private void SelectionHandler(Player player, ZClass zClass) {
     zClass.give(player);
-    player.addScoreboardTag("test");
+    player.addScoreboardTag("clicked");
   }
 
   public ClassSelectionMenu(ZvH zvh) {
     menu = new MenuHolder<>(zvh, 9, "Choose a class:");
 
     menu.setButton(8, new SelectButton<ZvH>((new ItemBuilder(Material.BARRIER)).name("§r§6Leave").build(), e -> {
-      e.getWhoClicked().addScoreboardTag("test");
+      e.getWhoClicked().addScoreboardTag("clicked");
       Game.leave((Player) e.getWhoClicked());
     }));
 
@@ -59,8 +59,8 @@ public class ClassSelectionMenu implements CommandExecutor, Listener {
   @EventHandler
   public void onClose(InventoryCloseEvent e) {
     if (e.getPlayer() instanceof Player && lastView == e.getView()) {
-      if (e.getPlayer().getScoreboardTags().contains("test"))
-        e.getPlayer().removeScoreboardTag("test");
+      if (e.getPlayer().getScoreboardTags().contains("clicked"))
+        e.getPlayer().removeScoreboardTag("clicked");
       else
         Bukkit.getScheduler().runTask(ZvH.singleton, () -> showTo((Player) e.getPlayer()));
     }

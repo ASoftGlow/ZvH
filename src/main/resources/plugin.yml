@@ -16,9 +16,12 @@ commands:
     description: Exits the arena
   resetmap:
     description: idk
+    permission: admin.manage.serverpermission
   afk:
     description: Sends an afk notification to everyone
     permission: admin.manage.serverpermission
+  shop:
+    description: Opens the shop while in-game
 
 permissions:
   example.test:

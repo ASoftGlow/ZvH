@@ -50,6 +50,8 @@ public class ZvH extends JavaPlugin {
     worldSpawnLocation = world.getSpawnLocation();
     editSession = WorldEdit.getInstance().newEditSession(BukkitAdapter.adapt(world));
 
+    ShopMenu.init();
+
     ZClassManager.init(getDataFolder().toPath().resolve("classes"), getLogger());
     ZClassManager.registerZClass("Zombie", Material.ZOMBIE_HEAD, 0, null);
     ZClassManager.registerZClass("Skeleton", Material.SKELETON_SKULL, 10, null);
@@ -89,6 +91,10 @@ public class ZvH extends JavaPlugin {
 
         case "afk":
           QOL.afkToggle(player);
+          return true;
+
+        case "shop":
+          ShopMenu.handleCommand(player);
           return true;
 
         default:
