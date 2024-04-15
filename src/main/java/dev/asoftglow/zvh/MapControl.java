@@ -100,7 +100,7 @@ public class MapControl {
 
         // setBlock at (dX,dZ)
         Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
-            "setblock " + dX + " " + y + " " + dZ + " minecraft:stone");
+            "setblock " + dX + " " + y + " " + dZ + " " + material);
       }
     }
   }
