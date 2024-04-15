@@ -26,7 +26,7 @@ public class ZvH extends JavaPlugin {
   private GuiListener guiListener;
   public static Team zombiesTeam, humansTeam, waitersTeam;
   public static Location worldSpawnLocation;
-  public static Objective coins, zombies_killed, humans_killed, exp;
+  public static Objective coins, zombies_killed, humans_killed, xp;
   public static ZvH singleton;
   public static EditSession editSession;
 
@@ -42,7 +42,7 @@ public class ZvH extends JavaPlugin {
     humansTeam = ms.getTeam("humans");
     waitersTeam = ms.getTeam("waiters");
     coins = ms.getObjective("coins");
-    exp = ms.getObjective("exp");
+    xp = ms.getObjective("xp");
     zombies_killed = ms.getObjective("zombies_killed");
     humans_killed = ms.getObjective("humans_killed");
 

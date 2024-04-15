@@ -3,17 +3,21 @@ package dev.asoftglow.zvh;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 
 import dev.asoftglow.zvh.commands.ClassSelectionMenu;
 
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.Material;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import io.papermc.paper.event.player.AsyncChatEvent;
@@ -25,7 +29,7 @@ public class MiscListener implements Listener {
 
   @EventHandler
   public void onChatMsg(AsyncChatEvent e) {
-    //e.message(e.message().color(NamedTextColor.GOLD));
+    // e.message(e.message().color(NamedTextColor.GOLD));
   }
 
   @EventHandler
@@ -46,7 +50,10 @@ public class MiscListener implements Listener {
     var player = e.getPlayer();
     if (Game.playerIsPlaying(player)) {
       if (player.getKiller() != null && Game.playerIsPlaying(player.getKiller())) {
-        //ZvH.exp.getScore(player.getKiller())
+        var s = ZvH.xp.getScore(player.getKiller());
+        var ns = s.getScore() + 10;
+        s.setScore(ns);
+        player.getKiller().setTotalExperience(ns);
       }
       player.getInventory().clear();
       player.setItemOnCursor(null);
@@ -58,6 +65,25 @@ public class MiscListener implements Listener {
     } else {
       ZvH.waitersTeam.removePlayer(player);
     }
+  }
+
+  @EventHandler
+  public void onArrowHit(ProjectileHitEvent e) {
+    if (e.getHitEntity() == null)
+      return;
+    if (!(e.getHitEntity() instanceof Player))
+      return;
+    var victim = (Player) e.getHitEntity();
+    var uuid = e.getEntity().getOwnerUniqueId();
+    if (uuid == null)
+      return;
+    var shooter = Bukkit.getPlayer(uuid);
+    if (shooter == null)
+      return;
+    if (!(Game.playerIsPlaying(shooter) && Game.playerIsPlaying(victim)))
+      return;
+
+    shooter.getInventory().addItem(new ItemStack(Material.ARROW));
   }
 
   @EventHandler

@@ -114,6 +114,9 @@ public class Game {
     ZvH.humansTeam.addPlayer(player);
     join(player);
     player.getInventory().addItem(new ItemStack(Material.STONE_SWORD));
+    player.getInventory().addItem(new ItemStack(Material.BOW));
+    player.getInventory().addItem(new ItemStack(Material.ARROW, 2));
+    player.getInventory().setChestplate(new ItemStack(Material.CHAINMAIL_CHESTPLATE));
 
     player.teleport(
         MapControl.getLocation(player, MapControl.mapSizes[0].humanSpawn(), MapControl.mapSizes[0].zombieSpawn()));
@@ -135,6 +138,7 @@ public class Game {
     player.clearActivePotionEffects();
     player.setHealth(20d);
     player.setGameMode(GameMode.ADVENTURE);
+    player.setArrowsInBody(0);
     player.setRespawnLocation(null, true);
 
     if (playing.contains(player)) {
