@@ -87,6 +87,10 @@ public class ZvH extends JavaPlugin {
           MapControl.resetMap(0);
           return true;
 
+        case "afk":
+          QOL.afkToggle(player);
+          return true;
+
         default:
           break;
       }
