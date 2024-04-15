@@ -16,6 +16,9 @@ commands:
     description: Exits the arena
   resetmap:
     description: idk
+  afk:
+    description: Sends an afk notification to everyone
+    permission: admin.manage.serverpermission
 
 permissions:
   example.test:
