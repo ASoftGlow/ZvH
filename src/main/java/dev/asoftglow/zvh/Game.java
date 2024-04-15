@@ -15,6 +15,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
 
 import dev.asoftglow.zvh.commands.ClassSelectionMenu;
+import dev.asoftglow.zvh.util.Util;
 import fr.mrmicky.fastboard.adventure.FastBoard;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -46,14 +47,17 @@ public class Game {
   private static final Title humans_win_title = Title.title(
       Component.text("Humans").style(human_style),
       Component.text("have won!"));
+  private static final Style msg_style = Style.style(NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD);
 
   private static Set<Player> last_zombies = new HashSet<>();
   private static Set<Player> playing = new HashSet<>();
   private static boolean active = false;
   private static int game_time;
 
-  public static void init() {
-
+  public static void sendServerMsg(String content) {
+    var c = Component.text("> ").append(Component.text(content).style(msg_style));
+    for (var p : Bukkit.getOnlinePlayers())
+      p.sendMessage(c);
   }
 
   public static boolean isActive() {
@@ -63,6 +67,7 @@ public class Game {
   public static void joinWaiters(Player player) {
     ZvH.waitersTeam.addPlayer(player);
     if (ZvH.waitersTeam.getEntries().size() == REQUIRED_PLAYERS) {
+      sendServerMsg("A game is starting soon!");
       startCountDown();
     } else
       updateBoards();
@@ -88,15 +93,19 @@ public class Game {
     playing.add(player);
     player.getScoreboardTags().add("playing");
     player.setGameMode(GameMode.SURVIVAL);
+    player.setHealth(20d);
     player.getInventory().clear();
-    player.setRespawnLocation(MapControl.getLocation(player, MapControl.mapSizes[0].zombieSpawn()), true);
+    player.setItemOnCursor(null);
+    player.setRespawnLocation(
+        MapControl.getLocation(player, MapControl.mapSizes[0].zombieSpawn(), MapControl.mapSizes[0].humanSpawn()),
+        true);
   }
 
   public static void joinZombies(Player player) {
     ZvH.zombiesTeam.addPlayer(player);
     join(player);
-    var loc = MapControl.getLocation(player, MapControl.mapSizes[0].zombieSpawn());
-    player.teleport(loc);
+    player.teleport(
+        MapControl.getLocation(player, MapControl.mapSizes[0].zombieSpawn(), MapControl.mapSizes[0].humanSpawn()));
     ClassSelectionMenu.showTo(player);
     player.showTitle(zombie_spawn_title);
   }
@@ -105,37 +114,50 @@ public class Game {
     ZvH.humansTeam.addPlayer(player);
     join(player);
     player.getInventory().addItem(new ItemStack(Material.STONE_SWORD));
-    var loc = MapControl.getLocation(player, MapControl.mapSizes[0].humanSpawn());
-    player.teleport(loc);
+
+    player.teleport(
+        MapControl.getLocation(player, MapControl.mapSizes[0].humanSpawn(), MapControl.mapSizes[0].zombieSpawn()));
     player.showTitle(human_spawn_title);
   }
 
   public static void leaveHumans(Player player) {
     ZvH.humansTeam.removePlayer(player);
-    joinZombies(player);
     if (ZvH.humansTeam.getEntries().size() == 0) {
+      player.getScoreboardTags().add("needs-tp");
       zombiesWin();
-    }
+    } else
+      joinZombies(player);
   }
 
   public static void leave(Player player) {
     player.getScoreboardTags().remove("playing");
     ZvH.zombiesTeam.removePlayer(player);
     player.clearActivePotionEffects();
+    player.setHealth(20d);
     player.setGameMode(GameMode.ADVENTURE);
+    player.setRespawnLocation(null, true);
 
-    if (playing.remove(player)) {
+    if (playing.contains(player)) {
+      if (active)
+        playing.remove(player);
+
       if (ZvH.humansTeam.hasPlayer(player)) {
-        leaveHumans(player);
-      } else if (playing.size() == 0) {
+        ZvH.humansTeam.removePlayer(player);
+      } else if (active && playing.size() == 0) {
         stop();
-      } else if (ZvH.zombiesTeam.getEntries().size() == 0) {
-        // choose new zombie
-        
+      } else if (active && playing.size() > 1 && ZvH.zombiesTeam.getEntries().size() == 0) {
+        // choose new zombies
+        for (var p : pickZombies(playing)) {
+          p.getInventory().clear();
+          p.setItemOnCursor(null);
+          leaveHumans(p);
+          Util.playSound(p, Sound.ENTITY_ZOMBIE_AMBIENT, 0.9f, 0.8f);
+        }
       }
     } else
       leaveWaiters(player);
     player.getInventory().clear();
+    player.setItemOnCursor(null);
     player.teleport(ZvH.worldSpawnLocation);
   }
 
@@ -170,10 +192,7 @@ public class Game {
 
     // blocks
     game_tasks.add(Bukkit.getScheduler().runTaskTimer(ZvH.singleton, () -> {
-      for (var e : ZvH.humansTeam.getEntries()) {
-        var player = Bukkit.getPlayer(e);
-        if (player == null)
-          continue;
+      for (var player : playing) {
         player.getInventory().addItem(new ItemStack(Material.GRAVEL, 5),
             new ItemStack(Material.LIGHT_GRAY_WOOL));
       }
@@ -183,6 +202,8 @@ public class Game {
     game_tasks.add(Bukkit.getScheduler().runTaskTimer(ZvH.singleton, () -> {
       updateTime();
     }, 0, 20));
+
+    sendServerMsg("A game has started.");
   }
 
   public static void stop() {
@@ -190,11 +211,12 @@ public class Game {
     while (!game_tasks.empty())
       game_tasks.pop().cancel();
 
-    var it = playing.iterator();
-    while (it.hasNext())
-      leave(it.next());
+    for (var p : playing)
+      leave(p);
+    playing.clear();
 
     updateBoards();
+    sendServerMsg("This game has ended.");
   }
 
   public static void updateBoards() {
@@ -228,9 +250,9 @@ public class Game {
   private static Stack<BukkitTask> game_tasks = new Stack<>();
 
   public static void startCountDown() {
-    final int[] t = { 10 };
+    final int[] t = { 5 + 1 };
     count_down_tasks = Bukkit.getScheduler().runTaskTimer(ZvH.singleton, () -> {
-      if (t[0]-- == 0) {
+      if (--t[0] == 0) {
         cancelCountDown();
         start();
         return;
@@ -278,10 +300,12 @@ public class Game {
 
   public static Set<Player> pickZombies(Set<Player> players) {
     var options = new HashSet<>(players);
-    options.removeAll(last_zombies);
+    if (players.size() > 1)
+      options.removeAll(last_zombies);
     last_zombies.clear();
 
-    for (int i = 0; i < Math.min((int) Math.ceil((double) players.size() / 10d), 1); i++) {
+    for (int i = 0; i < Math.min((int) Math.ceil((double) players.size() / 10d),
+        1); i++) {
       last_zombies.add(Util.popRandom(options));
     }
     return last_zombies;
@@ -291,11 +315,13 @@ public class Game {
     for (var p : playing) {
       p.showTitle(zombies_win_title);
     }
+    stop();
   }
 
   public static void humansWin() {
     for (var p : playing) {
       p.showTitle(humans_win_title);
     }
+    stop();
   }
 }

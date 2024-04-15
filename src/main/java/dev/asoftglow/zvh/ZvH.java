@@ -7,6 +7,8 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Team;
 
@@ -24,7 +26,7 @@ public class ZvH extends JavaPlugin {
   private GuiListener guiListener;
   public static Team zombiesTeam, humansTeam, waitersTeam;
   public static Location worldSpawnLocation;
-  public static Objective coins;
+  public static Objective coins, zombies_killed, humans_killed, exp;
   public static ZvH singleton;
   public static EditSession editSession;
 
@@ -40,20 +42,23 @@ public class ZvH extends JavaPlugin {
     humansTeam = ms.getTeam("humans");
     waitersTeam = ms.getTeam("waiters");
     coins = ms.getObjective("coins");
+    exp = ms.getObjective("exp");
+    zombies_killed = ms.getObjective("zombies_killed");
+    humans_killed = ms.getObjective("humans_killed");
 
     var world = getServer().getWorlds().get(0);
     worldSpawnLocation = world.getSpawnLocation();
     editSession = WorldEdit.getInstance().newEditSession(BukkitAdapter.adapt(world));
 
-    Game.init();
-
     ZClassManager.init(getDataFolder().toPath().resolve("classes"), getLogger());
-    ZClassManager.registerZClass("Zombie", Material.ZOMBIE_HEAD, 0);
-    ZClassManager.registerZClass("Skeleton", Material.SKELETON_SKULL, 10);
-    ZClassManager.registerZClass("Blaze", Material.BLAZE_POWDER, 10);
-    ZClassManager.registerZClass("Witch", Material.POTION, 10);
-    ZClassManager.registerZClass("Spider", Material.STRING, 10);
-    ZClassManager.registerZClass("Slime", Material.SLIME_BALL, 10);
+    ZClassManager.registerZClass("Zombie", Material.ZOMBIE_HEAD, 0, null);
+    ZClassManager.registerZClass("Skeleton", Material.SKELETON_SKULL, 10, null);
+    ZClassManager.registerZClass("Blaze", Material.BLAZE_POWDER, 10, null);
+    ZClassManager.registerZClass("Witch", Material.POTION, 10, null);
+    ZClassManager.registerZClass("Spider", Material.STRING, 10, null);
+    ZClassManager.registerZClass("Slime", Material.SLIME_BALL, 10, new PotionEffect[] {
+        new PotionEffect(PotionEffectType.JUMP, -1, 2)
+    });
 
     GuiLibrary guiLibrary = (GuiLibrary) getServer().getPluginManager().getPlugin("GuiLib");
     guiListener = guiLibrary.getGuiListener();

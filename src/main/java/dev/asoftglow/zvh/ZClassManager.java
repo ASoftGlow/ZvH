@@ -11,6 +11,7 @@ import java.util.logging.Logger;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.potion.PotionEffect;
 
 public class ZClassManager {
   public static final SortedMap<String, ZClass> zClasses = new TreeMap<>();
@@ -23,8 +24,8 @@ public class ZClassManager {
     classesConfigDirectory.toFile().mkdir();
   }
 
-  public static void registerZClass(String name, Material icon, int price) {
-    zClasses.put(name, new ZClass(name, icon, price, readZClass(name)));
+  public static void registerZClass(String name, Material icon, int price, PotionEffect[] effects) {
+    zClasses.put(name, new ZClass(name, icon, price, readZClass(name), effects));
     logger.info("Registered class %s.".formatted(name));
   }
 

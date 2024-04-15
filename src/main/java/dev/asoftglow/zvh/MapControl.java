@@ -4,10 +4,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.util.Vector;
 
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.math.BlockVector3;
-import com.sk89q.worldedit.math.Vector3;
 import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.regions.Region;
 
@@ -17,19 +17,21 @@ public class MapControl {
   public record MapSize(
       int[] bounds,
       int min,
-      Vector3 zombieSpawn,
-      Vector3 humanSpawn) {
+      Vector zombieSpawn,
+      Vector humanSpawn) {
   }
 
   // stores the two corners of the game arena (x1,z1,x2,z2,y)
   static int[] b;
   private static int last_size = -1;
   final public static MapSize[] mapSizes = {
-      new MapSize(new int[] { -47, 16, 52, 68, 1 }, 4, Vector3.at(40, 2, 40), Vector3.at(-40, 2, 40))
+      new MapSize(new int[] { -47, 16, 52, 68, 1 }, 4, new Vector(40, 2, 42), new Vector(-40, 2, 42))
   };
 
-  public static Location getLocation(Player player, Vector3 pos) {
-    return new Location(player.getWorld(), pos.getX(), pos.getY(), pos.getZ());
+  public static Location getLocation(Player player, Vector pos, Vector look_pos) {
+    var v = pos.clone().subtract(look_pos);
+    return new Location(player.getWorld(), pos.getX(), pos.getY(), pos.getZ(), (float) Math.atan2(v.getX(), v.getZ()),
+        0f);
   }
 
   public static void resetBorders() {
@@ -57,18 +59,21 @@ public class MapControl {
     // Clear building space
     ZvH.editSession.setBlocks((Region) new CuboidRegion(
         BlockVector3.at(b[0] + 1, b[4] + 1, b[1] + 1),
-        BlockVector3.at(b[2] - 1, b[4] + 30, b[3] - 1)),
+        BlockVector3.at(b[2] - 1, b[4] + 29, b[3] - 1)),
         BukkitAdapter.asBlockType(Material.AIR).getDefaultState());
 
     if (last_size != size) {
       last_size = size;
       resetBorders();
       genZSafe(mapSizes[size].zombieSpawn, 4);
-      genZSafe(mapSizes[size].humanSpawn, 6);
-      circle(-37, 1, 42, 6, "stone", false, 36 * 3);
     }
 
     ZvH.editSession.flushQueue();
+    var cs = Bukkit.getServer().getConsoleSender();
+    Bukkit.getServer().dispatchCommand(cs, "kill @e[type=item]");
+    Bukkit.getServer().dispatchCommand(cs, "kill @e[type=#impact_projectiles]");
+    Bukkit.getServer().dispatchCommand(cs, "kill @e[type=falling_block]");
+    Bukkit.getServer().dispatchCommand(cs, "kill @e[type=potion]");
   }
 
   // draws a circle, in a block game!
@@ -101,15 +106,14 @@ public class MapControl {
   }
 
   // generate a zombie safe zone in the map
-  public static void genZSafe(Vector3 pos, int radius) {
-    fill(pos.getBlockX() - radius, pos.getBlockY(), pos.getBlockZ() - radius, pos.getBlockX() + radius, pos.getBlockY(),
-        pos.getBlockZ() + radius, "light_gray_concrete_powder");
-    circle(pos.getBlockX(), pos.getBlockY(), pos.getBlockZ(), radius, "stone", false, radius * radius * 3);
+  public static void genZSafe(Vector pos, int radius) {
+    circle(pos.getBlockX(), pos.getBlockY() - 1, pos.getBlockZ(), radius, "light_gray_concrete_powder", false,
+        radius * radius * 3);
   }
 
   public static void fill(int x1, int y1, int z1, int x2, int y2, int z2, String material) {
     Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
         "fill " + x1 + " " + y1 + " " + z1 + " " + x2 + " " + y2
-            + " " + z2 + " minecraft:stone");
+            + " " + z2 + " " + material);
   }
 }

@@ -6,23 +6,18 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.ItemStack;
-
-import com.destroystokyo.paper.event.player.PlayerArmorChangeEvent;
 
 import dev.asoftglow.zvh.commands.ClassSelectionMenu;
 
-import java.util.function.Consumer;
-
+import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
-import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 public class MiscListener implements Listener {
@@ -30,23 +25,36 @@ public class MiscListener implements Listener {
 
   @EventHandler
   public void onChatMsg(AsyncChatEvent e) {
-    e.message(e.message().color(NamedTextColor.GOLD));
+    //e.message(e.message().color(NamedTextColor.GOLD));
+  }
+
+  @EventHandler
+  public void onRespawn(PlayerRespawnEvent e) {
+    var player = e.getPlayer();
+    if (player.getScoreboardTags().remove("needs-tp")) {
+      player.teleport(ZvH.worldSpawnLocation);
+    }
+    if (Game.playerIsPlaying(player)) {
+      if (ZvH.zombiesTeam.hasPlayer(player)) {
+        Bukkit.getScheduler().runTask(ZvH.singleton, () -> ClassSelectionMenu.showTo(player));
+      }
+    }
   }
 
   @EventHandler
   public void onDeath(PlayerDeathEvent e) {
     var player = e.getPlayer();
     if (Game.playerIsPlaying(player)) {
-      if (ZvH.humansTeam.hasPlayer(player)) {
-        Game.leaveHumans(player);
-      } else {
-        player.teleport(MapControl.getLocation(player, MapControl.mapSizes[0].zombieSpawn()));
-        ClassSelectionMenu.showTo(player);
+      if (player.getKiller() != null && Game.playerIsPlaying(player.getKiller())) {
+        //ZvH.exp.getScore(player.getKiller())
       }
-
       player.getInventory().clear();
+      player.setItemOnCursor(null);
       e.setDroppedExp(0);
       e.setNewTotalExp(0);
+      if (ZvH.humansTeam.hasPlayer(player)) {
+        Game.leaveHumans(player);
+      }
     } else {
       ZvH.waitersTeam.removePlayer(player);
     }
@@ -65,27 +73,28 @@ public class MiscListener implements Listener {
 
   @EventHandler
   public void onInteractNpc(PlayerInteractAtEntityEvent e) {
-    if (e.getHand().equals(EquipmentSlot.HAND)) {
+    if (e.getHand().equals(EquipmentSlot.HAND) && e.getPlayer().getGameMode() != GameMode.SPECTATOR) {
       e.getPlayer().swingMainHand();
       onClickNpc(e, e.getRightClicked());
     }
   }
 
-  @EventHandler
-  public void onArmor(PlayerArmorChangeEvent e) {
-    if (e.getPlayer().getGameMode() != GameMode.CREATIVE && e.getNewItem().getType() == Material.AIR) {
-      var inv = e.getPlayer().getInventory();
-      Consumer<ItemStack> m = switch (e.getSlotType()) {
-        case CHEST -> inv::setChestplate;
-        case FEET -> inv::setBoots;
-        case HEAD -> inv::setHelmet;
-        case LEGS -> inv::setLeggings;
-      };
-      m.accept(e.getOldItem());
-      inv.remove(e.getOldItem());
-      e.getPlayer().setItemOnCursor(null);
-    }
-  }
+  // @EventHandler
+  // public void onArmor(PlayerArmorChangeEvent e) {
+  // if (e.getPlayer().getGameMode() != GameMode.CREATIVE &&
+  // e.getNewItem().getType() == Material.AIR) {
+  // var inv = e.getPlayer().getInventory();
+  // Consumer<ItemStack> m = switch (e.getSlotType()) {
+  // case CHEST -> inv::setChestplate;
+  // case FEET -> inv::setBoots;
+  // case HEAD -> inv::setHelmet;
+  // case LEGS -> inv::setLeggings;
+  // };
+  // m.accept(e.getOldItem());
+  // inv.remove(e.getOldItem());
+  // e.getPlayer().setItemOnCursor(null);
+  // }
+  // }
 
   public <E extends PlayerEvent & Cancellable> void onClickNpc(E e, Entity target) {
     if (!Game.playerIsPlaying(e.getPlayer())) {

@@ -1,5 +1,6 @@
 package dev.asoftglow.zvh;
 
+import org.bukkit.potion.PotionEffect;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -11,17 +12,24 @@ public class ZClass {
   @NotNull
   public final Material icon;
   public final int price;
+  @NotNull
+  public final PotionEffect[] effects;
   public ItemStack[] items = new ItemStack[0];
 
-  public ZClass(@NotNull String name, @NotNull Material icon, int price, ItemStack[] items) {
+  public ZClass(@NotNull String name, @NotNull Material icon, int price, ItemStack[] items, PotionEffect[] effects) {
     this.name = name;
     this.icon = icon;
     this.price = price;
     if (items != null)
       this.items = items;
+    this.effects = effects == null ? new PotionEffect[] {} : effects;
   }
 
   public void give(@NotNull Player player) {
     player.getInventory().setContents(items);
+    for (var e : effects)
+      player.getServer().dispatchCommand(player.getServer().getConsoleSender(),
+          // Can't disable potion particles without manual packet modification
+          "effect give %s %s infinite %d true".formatted(player.getName(), e.getType().key().asString(), e.getAmplifier()));
   }
 }
