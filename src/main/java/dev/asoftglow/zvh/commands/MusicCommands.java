@@ -26,19 +26,19 @@ public class MusicCommands implements CommandExecutor, TabCompleter {
           switch (args[1]) {
             case "a_decaying_city":
             case "adc":
-              Music.toggle(player, "A_Decaying_City");
+              Music.play(player, "a_decaying_city");
               player.sendMessage("Now Playing: A Decaying City");
               break;
             case "survive_the_night":
             case "stn":
-              Music.toggle(player, "Survive_The_Night");
+              Music.play(player, "survive_the_night");
               player.sendMessage("Now Playing: Survive The Night");
               break;
           }
           break;
         case "stop":
-          Music.toggle(player, "doesn't matter");
-          player.sendMessage("Now Stopping All Music");
+          Music.toggle(player, "Someone tried to stop while no music was playing");
+          player.sendMessage("Stopping All Music");
           break;
         default:
           return false;
