@@ -16,6 +16,10 @@ public class Music {
     // Survive_The_Night
     public static void toggle(Player Player, String song){
 
+        if (toggleMap.containsKey(Player) == false){
+            toggleMap.put(Player, "false");
+        }
+
         if (toggleMap.get(Player) == "false"){
             toggleMap.put(Player, song);
             Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),

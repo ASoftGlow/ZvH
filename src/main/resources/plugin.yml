@@ -22,8 +22,8 @@ commands:
     permission: admin.manage.serverpermission
   shop:
     description: Opens the shop while in-game
-  togglemusic:
-    description: Toggles the lobby music!
+  music:
+    description: Base command to control music
 
 permissions:
   example.test:

@@ -17,6 +17,7 @@ import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 
 import dev.asoftglow.zvh.commands.ClassSelectionMenu;
+import dev.asoftglow.zvh.commands.MusicCommands;
 import dev.asoftglow.zvh.commands.ZvHCommands;
 import xyz.janboerman.guilib.GuiLibrary;
 import xyz.janboerman.guilib.api.GuiListener;
@@ -68,6 +69,7 @@ public class ZvH extends JavaPlugin {
     var csm = new ClassSelectionMenu(this);
     getCommand("class").setExecutor(csm);
     getCommand("zvh").setExecutor(new ZvHCommands());
+    getCommand("music").setExecutor(new MusicCommands());
     var pm = getServer().getPluginManager();
     pm.registerEvents(new JoinLeaveListener(), this);
     pm.registerEvents(new MiscListener(), this);
@@ -95,10 +97,6 @@ public class ZvH extends JavaPlugin {
 
         case "shop":
           ShopMenu.handleCommand(player);
-          return true;
-
-        case "togglemusic":
-          Music.toggle(player, "A_Decaying_City");
           return true;
         
         default:
