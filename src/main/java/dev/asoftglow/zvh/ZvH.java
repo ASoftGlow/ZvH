@@ -97,6 +97,10 @@ public class ZvH extends JavaPlugin {
           ShopMenu.handleCommand(player);
           return true;
 
+        case "togglemusic":
+          Music.toggle(player, "A_Decaying_City");
+          return true;
+        
         default:
           break;
       }
