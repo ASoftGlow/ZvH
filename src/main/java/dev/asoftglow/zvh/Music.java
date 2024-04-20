@@ -8,7 +8,7 @@ import org.bukkit.entity.Player;
 public class Music {
     
     //Make a map for player toggles
-    static Map<Player, String> toggleMap = new HashMap<>();
+    static Map<Player, String> musicMap = new HashMap<>();
 
     // turns on music for a specific player using the datapack
     // Current songs:
@@ -16,18 +16,25 @@ public class Music {
     // Survive_The_Night
     public static void toggle(Player Player, String song){
 
-        if (toggleMap.containsKey(Player) == false){
-            toggleMap.put(Player, "false");
+        if (musicMap.containsKey(Player) == false){
+            musicMap.put(Player, "false");
         }
 
-        if (toggleMap.get(Player) == "false"){
-            toggleMap.put(Player, song);
+        if (musicMap.get(Player).equals("false")){
+            musicMap.put(Player, song);
             Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
                 "execute as " + Player.getName() + " run function " + song + ":play");
         } else {
-            toggleMap.put(Player, "false");
+            musicMap.put(Player, "false");
             Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
                 "execute as " + Player.getName() + " run function " + song + ":stop");
         }
+    }
+
+    public static void switchSong(Player Player, String song){
+        Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
+                "execute as " + Player.getName() + " run function " + musicMap.get(Player) + ":stop");
+        Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
+                "execute as " + Player.getName() + " run function " + song + ":play");
     }
 }
