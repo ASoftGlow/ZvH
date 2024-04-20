@@ -31,6 +31,14 @@ public class Music {
         }
     }
 
+    public static void play(Player Player, String song){
+        if (musicMap.containsKey(Player) == false || musicMap.get(Player).equals("false")){
+            toggle(Player, song);
+        } else {
+            switchSong(Player, song);
+        }
+    }
+
     public static void switchSong(Player Player, String song){
         Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
                 "execute as " + Player.getName() + " run function " + musicMap.get(Player) + ":stop");
