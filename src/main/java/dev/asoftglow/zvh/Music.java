@@ -2,12 +2,10 @@ package dev.asoftglow.zvh;
 
 import java.util.HashMap;
 import java.util.Map;
-
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 public class Music {
-
   // Make a map for player toggles
   static Map<Player, String> musics = new HashMap<>();
 
