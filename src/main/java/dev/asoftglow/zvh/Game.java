@@ -11,6 +11,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
@@ -54,7 +55,7 @@ public abstract class Game {
   public static final ItemStack spec_leave_item = new ItemBuilder(Material.BARRIER).name("Click to leave").build();
 
   private static Set<Player> last_zombies = new HashSet<>();
-  private static Set<Player> playing = new HashSet<>();
+  public static Set<Player> playing = new HashSet<>();
   private static boolean active = false;
   private static int game_time;
 
@@ -62,21 +63,62 @@ public abstract class Game {
     return active;
   }
 
+  public static void clean() {
+    for (var p : getHumans()) {
+      if (p.isConnected())
+        continue;
+      ZvH.humansTeam.removePlayer(p);
+    }
+    for (var p : getZombies()) {
+      if (p.isConnected())
+        continue;
+      ZvH.zombiesTeam.removePlayer(p);
+    }
+    for (var e : ZvH.waitersTeam.getEntries()) {
+      var p = Bukkit.getPlayerExact(e);
+      if (p == null || p.isConnected())
+        continue;
+      ZvH.waitersTeam.removePlayer(p);
+    }
+    for (var e : ZvH.world.getEntities()) {
+      if (e.getScoreboardTags().contains("temp"))
+        e.remove();
+    }
+  }
+
   public static void joinWaiters(Player player) {
     ZvH.waitersTeam.addPlayer(player);
-    if (ZvH.waitersTeam.getEntries().size() == REQUIRED_PLAYERS) {
-      Util.sendServerMsg("A game is starting soon!");
-      startCountDown();
-    } else
+    if (ZvH.waitersTeam.getEntries().size() >= REQUIRED_PLAYERS) {
+      if (ZvH.waitersTeam.getEntries().size() == REQUIRED_PLAYERS) {
+        Util.sendServerMsg("A game is starting soon!");
+        startCountDown();
+      }
+      if (ZvH.waitersTeam.getEntries().size() == Bukkit.getOnlinePlayers().size()) {
+        if (count_down_time[0] > 4)
+          count_down_time[0] = 4;
+      }
+    } else {
       updateBoards();
+    }
+
+    if (ZvH.waitersTeam.getEntries().size() == 1)
+      waiting_task = Bukkit.getScheduler().runTaskTimer(ZvH.singleton, () -> {
+        for (var p : ZvH.waitersTeam.getEntries()) {
+          Bukkit.getPlayer(p).sendActionBar(Component.text("You are queued").style(Style.style(NamedTextColor.AQUA)));
+        }
+      }, 0, 60);
   }
 
   public static void leaveWaiters(Player player) {
-    if (ZvH.waitersTeam.removePlayer(player))
+    if (ZvH.waitersTeam.removePlayer(player)) {
       if (ZvH.waitersTeam.getEntries().size() == REQUIRED_PLAYERS - 1) {
         cancelCountDown();
       } else
         updateBoards();
+      if (ZvH.waitersTeam.getEntries().size() == 0) {
+        waiting_task.cancel();
+      }
+    }
   }
 
   public static void joinSpectators(Player player) {
@@ -85,6 +127,7 @@ public abstract class Game {
     player.setItemOnCursor(null);
     player.getInventory().setItem(8, spec_leave_item);
     Util.givePotionEffect(player, new PotionEffect(PotionEffectType.SPEED, -1, 2));
+    Util.givePotionEffect(player, new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, -1, 255));
     player.teleport(new Location(player.getWorld(), 0, 32, 42, 0f, 90f));
   }
 
@@ -105,6 +148,8 @@ public abstract class Game {
     player.setRespawnLocation(
         MapControl.getLocation(player, MapControl.mapSizes[0].zombieSpawn(), MapControl.mapSizes[0].humanSpawn()),
         true);
+
+    Music.stop(player);
   }
 
   public static void joinZombies(Player player) {
@@ -114,6 +159,11 @@ public abstract class Game {
         MapControl.getLocation(player, MapControl.mapSizes[0].zombieSpawn(), MapControl.mapSizes[0].humanSpawn()));
     ClassSelectionMenu.showTo(player);
     player.showTitle(zombie_spawn_title);
+    Util.playSound(player, Sound.ENTITY_ZOMBIE_AMBIENT, 1f, 0.8f);
+
+    if (player.getName().equals("AthenaViolet")) {
+      player.getInventory().setItemInMainHand(new ItemStack(Material.IRON_SWORD));
+    }
   }
 
   public static void joinHumans(Player player) {
@@ -122,30 +172,42 @@ public abstract class Game {
     player.getInventory().addItem(new ItemStack(Material.STONE_SWORD));
     player.getInventory().addItem(new ItemStack(Material.BOW));
     player.getInventory().addItem(new ItemStack(Material.ARROW, 2));
-    player.getInventory().setChestplate(new ItemStack(Material.CHAINMAIL_CHESTPLATE));
+    player.getInventory().setChestplate(new ItemStack(Material.IRON_CHESTPLATE));
+    player.getInventory().setLeggings(new ItemStack(Material.CHAINMAIL_LEGGINGS));
+    player.getInventory().setBoots(new ItemStack(Material.CHAINMAIL_BOOTS));
 
     player.teleport(
         MapControl.getLocation(player, MapControl.mapSizes[0].humanSpawn(), MapControl.mapSizes[0].zombieSpawn()));
     player.showTitle(human_spawn_title);
+    Util.playSound(player, Sound.ENTITY_VILLAGER_AMBIENT, 1f, 0.8f);
   }
 
   public static void leaveHumans(Player player) {
     ZvH.humansTeam.removePlayer(player);
-    if (ZvH.humansTeam.getEntries().size() == 0) {
-      player.getScoreboardTags().add("needs-tp");
+    if (getHumansCount() == 0) {
+      ZvH.changeCoins(player, 3);
       zombiesWin();
-    } else
-      joinZombies(player);
+      Bukkit.getScheduler().runTask(ZvH.singleton, () -> player.teleport(ZvH.worldSpawnLocation));
+      return;
+    }
+    if (getHumansCount() == 1) {
+      var last_player = getHumans().iterator().next();
+      last_player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, -1, 0));
+    }
+    joinZombies(player);
   }
 
   public static void leave(Player player) {
     player.getScoreboardTags().remove("playing");
+    player.clearTitle();
     ZvH.zombiesTeam.removePlayer(player);
     player.clearActivePotionEffects();
-    player.setHealth(20d);
+    player.setFireTicks(0);
     player.setGameMode(GameMode.ADVENTURE);
     player.setArrowsInBody(0);
     player.setRespawnLocation(null, true);
+    player.closeInventory();
+    player.setFallDistance(0);
 
     if (playing.contains(player)) {
       if (active)
@@ -155,20 +217,23 @@ public abstract class Game {
         ZvH.humansTeam.removePlayer(player);
       } else if (active && playing.size() == 0) {
         stop();
-      } else if (active && playing.size() > 1 && ZvH.zombiesTeam.getEntries().size() == 0) {
+      } else if (active && playing.size() > 1 && getZombiesCount() == 0) {
         // choose new zombies
         for (var p : pickZombies(playing)) {
           p.getInventory().clear();
           p.setItemOnCursor(null);
           leaveHumans(p);
-          Util.playSound(p, Sound.ENTITY_ZOMBIE_AMBIENT, 0.9f, 0.8f);
+          Util.playSound(p, Sound.ENTITY_ZOMBIE_AMBIENT, 50f, 0.8f);
         }
       }
-    } else
-      leaveWaiters(player);
+    }
+    leaveWaiters(player);
     player.getInventory().clear();
     player.setItemOnCursor(null);
+    player.setHealth(player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue());
     player.teleport(ZvH.worldSpawnLocation);
+
+    Music.playLobby(player);
   }
 
   public static boolean playerIsPlaying(Player player) {
@@ -176,13 +241,13 @@ public abstract class Game {
   }
 
   public static void start() {
-    MapControl.resetMap(0);
+    MapControl.chooseMap(ZvH.waitersTeam.getEntries().size());
+    MapControl.resetMap();
     active = true;
     game_time = SURIVAL_TIME;
     for (var e : ZvH.waitersTeam.getEntries()) {
       var player = Bukkit.getPlayer(e);
-      if (player == null)
-        continue;
+      player.sendActionBar(Component.text(""));
       ZvH.waitersTeam.removePlayer(player);
       updateBoard(player);
       playing.add(player);
@@ -190,21 +255,20 @@ public abstract class Game {
 
     for (var player : pickZombies(playing)) {
       joinZombies(player);
-      Util.playSound(player, Sound.ENTITY_ZOMBIE_AMBIENT, 0.9f, 0.8f);
+      player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 5, 256));
     }
 
     for (var player : playing) {
       if (!ZvH.zombiesTeam.hasPlayer(player)) {
         joinHumans(player);
-        Util.playSound(player, Sound.ENTITY_VILLAGER_AMBIENT, 0.9f, 0.8f);
       }
     }
 
     // blocks
     game_tasks.add(Bukkit.getScheduler().runTaskTimer(ZvH.singleton, () -> {
       for (var player : playing) {
-        player.getInventory().addItem(new ItemStack(Material.GRAVEL, 5),
-            new ItemStack(Material.LIGHT_GRAY_WOOL));
+        player.getInventory().addItem(new ItemStack(Material.GRAVEL, 4),
+            new ItemStack(Material.LIGHT_GRAY_WOOL, 2));
       }
     }, 0, 20 * 10));
 
@@ -256,23 +320,25 @@ public abstract class Game {
     updateBoard(boards.get(player));
   }
 
-  private static BukkitTask count_down_tasks;
+  private static BukkitTask count_down_task, waiting_task;
   private static Stack<BukkitTask> game_tasks = new Stack<>();
+  private static final int[] count_down_time = { 0 };
 
   public static void startCountDown() {
-    final int[] t = { 5 + 1 };
-    count_down_tasks = Bukkit.getScheduler().runTaskTimer(ZvH.singleton, () -> {
-      if (--t[0] == 0) {
+    count_down_time[0] = 10 + 1;
+    count_down_task = Bukkit.getScheduler().runTaskTimer(ZvH.singleton, () -> {
+      if (--count_down_time[0] == 0) {
         cancelCountDown();
+        waiting_task.cancel();
         start();
         return;
       }
-      updateCountDown(t[0]);
+      updateCountDown(count_down_time[0]);
     }, 0, 20);
   }
 
   public static void cancelCountDown() {
-    count_down_tasks.cancel();
+    count_down_task.cancel();
     updateBoards();
   }
 
@@ -294,6 +360,11 @@ public abstract class Game {
     }
     for (var fb : boards.values()) {
       fb.updateLine(1, getFormatedTime());
+    }
+    if (game_time != 0 && game_time % 60 == 0) {
+      for (var p : getHumans()) {
+        ZvH.changeCoins(p, 1);
+      }
     }
   }
 
@@ -324,6 +395,10 @@ public abstract class Game {
   public static void zombiesWin() {
     for (var p : playing) {
       p.showTitle(zombies_win_title);
+      Util.playSound(p, Sound.BLOCK_BEACON_ACTIVATE, 50f, 1f);
+    }
+    for (var p : getZombies()) {
+      ZvH.changeCoins(p, last_zombies.contains(p) ? 15 : 5);
     }
     stop();
   }
@@ -332,6 +407,25 @@ public abstract class Game {
     for (var p : playing) {
       p.showTitle(humans_win_title);
     }
+    for (var p : getHumans()) {
+      ZvH.changeCoins(p, 15);
+    }
     stop();
+  }
+
+  public static Set<Player> getZombies() {
+    return Util.getTeamPlayers(ZvH.zombiesTeam);
+  }
+
+  public static int getZombiesCount() {
+    return Util.getTeamPlayersCount(ZvH.zombiesTeam);
+  }
+
+  public static Set<Player> getHumans() {
+    return Util.getTeamPlayers(ZvH.humansTeam);
+  }
+
+  public static int getHumansCount() {
+    return Util.getTeamPlayersCount(ZvH.humansTeam);
   }
 }

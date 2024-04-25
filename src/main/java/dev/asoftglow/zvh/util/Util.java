@@ -1,6 +1,7 @@
 package dev.asoftglow.zvh.util;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -12,6 +13,7 @@ import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
+import org.bukkit.scoreboard.Team;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -45,7 +47,7 @@ public abstract class Util {
   }
 
   public static void playSound(Player player, Sound sound, float volume, float pitch) {
-    player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BIT, SoundCategory.MASTER, 0.8f, 2f);
+    player.playSound(player.getLocation(), sound, SoundCategory.MASTER, volume, pitch);
   }
 
   public static void playSoundAll(Sound sound, float volume, float pitch) {
@@ -74,5 +76,29 @@ public abstract class Util {
     var c = Component.text("> ").append(Component.text(content).style(msg_style));
     for (var p : Bukkit.getOnlinePlayers())
       p.sendMessage(c);
+  }
+
+  public static Set<Player> getTeamPlayers(Team team) {
+    var players = new HashSet<Player>();
+    for (var e : team.getEntries()) {
+      var player = Bukkit.getPlayerExact(e);
+      if (player != null)
+        players.add(player);
+    }
+    return players;
+  }
+
+  public static int getTeamPlayersCount(Team team) {
+    int players = 0;
+    for (var e : team.getEntries()) {
+      var player = Bukkit.getPlayerExact(e);
+      if (player != null)
+        players++;
+    }
+    return players;
+  }
+
+  public static <T> T pickRandom(List<T> list) {
+    return list.get(ThreadLocalRandom.current().nextInt(list.size()));
   }
 }

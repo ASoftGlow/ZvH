@@ -3,6 +3,7 @@ package dev.asoftglow.zvh;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -17,7 +18,12 @@ import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 
 import dev.asoftglow.zvh.commands.ClassSelectionMenu;
+import dev.asoftglow.zvh.commands.MapModifierMenu;
+import dev.asoftglow.zvh.commands.MusicCommands;
 import dev.asoftglow.zvh.commands.ZvHCommands;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.Style;
 import xyz.janboerman.guilib.GuiLibrary;
 import xyz.janboerman.guilib.api.GuiListener;
 
@@ -26,9 +32,10 @@ public class ZvH extends JavaPlugin {
   private GuiListener guiListener;
   public static Team zombiesTeam, humansTeam, waitersTeam;
   public static Location worldSpawnLocation;
-  public static Objective coins, zombies_killed, humans_killed, xp;
+  public static Objective coins, zombies_killed, humans_killed, xp, lvl;
   public static ZvH singleton;
   public static EditSession editSession;
+  public static World world;
 
   public GuiListener getGuiListener() {
     return guiListener;
@@ -45,20 +52,23 @@ public class ZvH extends JavaPlugin {
     xp = ms.getObjective("xp");
     zombies_killed = ms.getObjective("zombies_killed");
     humans_killed = ms.getObjective("humans_killed");
+    lvl = ms.getObjective("lvl");
 
-    var world = getServer().getWorlds().get(0);
+    world = getServer().getWorlds().get(0);
     worldSpawnLocation = world.getSpawnLocation();
     editSession = WorldEdit.getInstance().newEditSession(BukkitAdapter.adapt(world));
 
-    ShopMenu.init();
+    Game.clean();
 
     ZClassManager.init(getDataFolder().toPath().resolve("classes"), getLogger());
     ZClassManager.registerZClass("Zombie", Material.ZOMBIE_HEAD, 0, null);
-    ZClassManager.registerZClass("Skeleton", Material.SKELETON_SKULL, 10, null);
+    ZClassManager.registerZClass("Skeleton", Material.SKELETON_SKULL, 5, new PotionEffect[] {
+        new PotionEffect(PotionEffectType.WEAKNESS, -1, 0)
+    });
     ZClassManager.registerZClass("Blaze", Material.BLAZE_POWDER, 10, null);
     ZClassManager.registerZClass("Witch", Material.POTION, 10, null);
     ZClassManager.registerZClass("Spider", Material.STRING, 10, null);
-    ZClassManager.registerZClass("Slime", Material.SLIME_BALL, 10, new PotionEffect[] {
+    ZClassManager.registerZClass("Slime", Material.SLIME_BALL, 5, new PotionEffect[] {
         new PotionEffect(PotionEffectType.JUMP, -1, 2)
     });
 
@@ -66,8 +76,8 @@ public class ZvH extends JavaPlugin {
     guiListener = guiLibrary.getGuiListener();
 
     var csm = new ClassSelectionMenu(this);
-    getCommand("class").setExecutor(csm);
     getCommand("zvh").setExecutor(new ZvHCommands());
+    getCommand("music").setExecutor(new MusicCommands());
     var pm = getServer().getPluginManager();
     pm.registerEvents(new JoinLeaveListener(), this);
     pm.registerEvents(new MiscListener(), this);
@@ -86,7 +96,8 @@ public class ZvH extends JavaPlugin {
           return true;
 
         case "resetmap":
-          MapControl.resetMap(0);
+          MapControl.chooseMap(1);
+          MapControl.resetMap();
           return true;
 
         case "afk":
@@ -97,10 +108,31 @@ public class ZvH extends JavaPlugin {
           ShopMenu.handleCommand(player);
           return true;
 
+        case "die":
+          player.setHealth(0d);
+          return true;
+
+        case "class":
+          ClassSelectionMenu.showTo(player);
+          return true;
+
+        case "modifier":
+          MapModifierMenu.showTo(player);
+          return true;
+
         default:
           break;
       }
     }
     return super.onCommand(sender, command, label, args);
+  }
+
+  public static void changeCoins(Player player, int amount) {
+    if (amount == 0)
+      return;
+    var s = coins.getScore(player);
+    s.setScore(s.getScore() + amount);
+    player.sendActionBar(Component.text("%+d coins".formatted(amount)).style(Style.style(NamedTextColor.GOLD)));
+    Game.updateBoard(player);
   }
 }

@@ -4,10 +4,11 @@ version: "${VERSION}"
 api-version: "1.16"
 author: ASoftGlow
 description: DESCRIPTION
-depend: ["GuiLib", "FastAsyncWorldEdit"]
+depend: ["GuiLib", "FastAsyncWorldEdit", "NoteBlockAPI"]
 commands:
   class:
     description: Opens class switcher
+    permission: admin.manage.serverpermission
   zvh:
     description: Base command for ZvH
     permission: admin.manage.serverpermission
@@ -22,6 +23,12 @@ commands:
     permission: admin.manage.serverpermission
   shop:
     description: Opens the shop while in-game
+  die:
+    aliases: kablooey
+    description: makes you die
+  music:
+    description: Base command to control music
+  modifier:
 
 permissions:
   example.test:

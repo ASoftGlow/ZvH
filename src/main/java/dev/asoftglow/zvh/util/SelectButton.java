@@ -1,6 +1,6 @@
 package dev.asoftglow.zvh.util;
 
-import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import org.bukkit.Bukkit;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -14,15 +14,15 @@ import xyz.janboerman.guilib.api.menu.MenuHolder;
  */
 public class SelectButton<P extends Plugin> extends ItemButton<MenuHolder<P>> {
 
-  private final Consumer<InventoryClickEvent> callback;
+  private final Predicate<InventoryClickEvent> callback;
 
   /**
    * Creates the select button with the custom icon and callback.
    * 
-   * @param icon the icon
+   * @param icon     the icon
    * @param callback a callback accepting an InventoryClickEvent
    */
-  public SelectButton(ItemStack icon, Consumer<InventoryClickEvent> callback) {
+  public SelectButton(ItemStack icon, Predicate<InventoryClickEvent> callback) {
     super(icon);
     this.callback = callback;
   }
@@ -35,7 +35,7 @@ public class SelectButton<P extends Plugin> extends ItemButton<MenuHolder<P>> {
    */
   @Override
   public final void onClick(MenuHolder<P> holder, InventoryClickEvent event) {
-    callback.accept(event);
-    Bukkit.getScheduler().runTask(holder.getPlugin(), event.getView()::close);
+    if (callback.test(event))
+      Bukkit.getScheduler().runTask(holder.getPlugin(), event.getView()::close);
   }
 }
