@@ -13,24 +13,29 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.potion.PotionEffect;
 
-public class ZClassManager {
+public class ZClassManager
+{
   public static final SortedMap<String, ZClass> zClasses = new TreeMap<>();
   private static Path classesConfigDirectory;
   private static Logger logger;
 
-  public static void init(Path classesConfigDirectory, Logger logger) {
+  public static void init(Path classesConfigDirectory, Logger logger)
+  {
     ZClassManager.classesConfigDirectory = classesConfigDirectory;
     ZClassManager.logger = logger;
     classesConfigDirectory.toFile().mkdir();
   }
 
-  public static void registerZClass(String name, Material icon, int price, PotionEffect[] effects) {
+  public static void registerZClass(String name, Material icon, int price, PotionEffect[] effects)
+  {
     zClasses.put(name, new ZClass(name, icon, price, readZClass(name), effects));
     logger.info("Registered class %s.".formatted(name));
   }
 
-  public static ItemStack[] readZClass(String name) {
-    try {
+  public static ItemStack[] readZClass(String name)
+  {
+    try
+    {
       Path fp = classesConfigDirectory.resolve(name);
       if (!Files.exists(fp))
         return null;
@@ -39,21 +44,26 @@ public class ZClassManager {
       logger.info("Loaded class config for %s.".formatted(name));
       return items;
 
-    } catch (IOException e) {
+    } catch (IOException e)
+    {
       logger.log(Level.SEVERE, "Failed to read from class config for %s!".formatted(name), e);
       return null;
     }
   }
 
-  public static void writeZClass(String name, byte[] data) {
-    try {
+  public static void writeZClass(String name, byte[] data)
+  {
+    try
+    {
       Files.write(classesConfigDirectory.resolve(name), data);
-    } catch (IOException e) {
+    } catch (IOException e)
+    {
       logger.log(Level.SEVERE, "Failed to save %s class config!".formatted(name), e);
     }
   }
 
-  public static void saveZClassFrom(String name, PlayerInventory inventory) {
+  public static void saveZClassFrom(String name, PlayerInventory inventory)
+  {
     ZClassManager.writeZClass(name, SerializeInventory.serialize(inventory));
   }
 }

@@ -12,116 +12,130 @@ import org.jetbrains.annotations.Nullable;
 import dev.asoftglow.zvh.Game;
 import dev.asoftglow.zvh.ZClassManager;
 
-public class ZvHCommands implements CommandExecutor, TabCompleter {
-
+public class ZvHCommands implements CommandExecutor, TabCompleter
+{
   @Override
-  public boolean onCommand(CommandSender sender, Command command, String label,
-      String[] args) {
+  public boolean onCommand(CommandSender sender, Command command, String label, String[] args)
+  {
     if (args.length == 0 || !(sender instanceof Player))
       return false;
     final var player = (Player) sender;
-    switch (args[0]) {
-      case "kit":
-        if (args.length < 3)
+    switch (args[0])
+    {
+    case "kit":
+      if (args.length < 3)
+        return false;
+      String name = args[3];
+      switch (args[1])
+      {
+      case "zombie":
+      case "z":
+        if (args.length < 4)
           return false;
-        String name = args[3];
-        switch (args[1]) {
-          case "zombie":
-          case "z":
-            if (args.length < 4)
-              return false;
 
-            switch (args[2]) {
-              case "save":
-              case "s":
-                if (ZClassManager.zClasses.containsKey(name)) {
-                  ZClassManager.zClasses.get(name).items = player.getInventory().getContents();
-                } else {
-                  player.sendMessage("Class %s doesn't exist!".formatted(name));
-                  break;
-                }
-
-                ZClassManager.saveZClassFrom(name, player.getInventory());
-                player.sendMessage("Saved class %s.".formatted(name));
-                break;
-
-              case "give":
-              case "g":
-                var zClass = ZClassManager.zClasses.get(name);
-                if (zClass == null) {
-                  player.sendMessage("Class %s doesn't exist!".formatted(name));
-                  break;
-                }
-                zClass.give(player);
-                player.sendMessage("Gave class %s.".formatted(name));
-                break;
-
-              default:
-                break;
-            }
+        switch (args[2])
+        {
+        case "save":
+        case "s":
+          if (ZClassManager.zClasses.containsKey(name))
+          {
+            ZClassManager.zClasses.get(name).items = player.getInventory().getContents();
+          } else
+          {
+            player.sendMessage("Class %s doesn't exist!".formatted(name));
             break;
+          }
 
-          case "human":
-          case "h":
+          ZClassManager.saveZClassFrom(name, player.getInventory());
+          player.sendMessage("Saved class %s.".formatted(name));
+          break;
+
+        case "give":
+        case "g":
+          var zClass = ZClassManager.zClasses.get(name);
+          if (zClass == null)
+          {
+            player.sendMessage("Class %s doesn't exist!".formatted(name));
             break;
+          }
+          zClass.give(player);
+          player.sendMessage("Gave class %s.".formatted(name));
+          break;
 
-          default:
-            return false;
+        default:
+          break;
         }
         break;
 
-      case "start":
-        Game.start();
-        player.sendMessage("Started.");
-        break;
-
-      case "stop":
-        Game.stop();
-        player.sendMessage("Stopped.");
+      case "human":
+      case "h":
         break;
 
       default:
         return false;
+      }
+      break;
+
+    case "start":
+      Game.start();
+      player.sendMessage("Started.");
+      break;
+
+    case "stop":
+      Game.stop();
+      player.sendMessage("Stopped.");
+      break;
+
+    default:
+      return false;
     }
     return true;
   }
 
   @Override
   public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
-      @NotNull String label, @NotNull String[] args) {
-    if (args.length == 1) {
+      @NotNull String label, @NotNull String[] args)
+  {
+    if (args.length == 1)
+    {
       return List.of("kit", "start", "stop");
     }
-    switch (args[0]) {
-      case "kit":
-        if (args.length == 2) {
-          return List.of("zombie", "human");
+    switch (args[0])
+    {
+    case "kit":
+      if (args.length == 2)
+      {
+        return List.of("zombie", "human");
+      }
+      switch (args[1])
+      {
+      case "zombie":
+      case "z":
+        if (args.length == 3)
+        {
+          return List.of("save", "give", "delete");
         }
-        switch (args[1]) {
-          case "zombie":
-          case "z":
-            if (args.length == 3) {
-              return List.of("save", "give", "delete");
-            }
-            if (args.length == 4) {
-              return List.copyOf(ZClassManager.zClasses.keySet());
-            }
-            break;
+        if (args.length == 4)
+        {
+          return List.copyOf(ZClassManager.zClasses.keySet());
+        }
+        break;
 
-          case "human":
-          case "h":
-            if (args.length == 3) {
-              return List.of("save", "reset");
-            }
-            break;
-
-          default:
-            break;
+      case "human":
+      case "h":
+        if (args.length == 3)
+        {
+          return List.of("save", "reset");
         }
         break;
 
       default:
         break;
+      }
+      break;
+
+    default:
+      break;
     }
 
     return null;

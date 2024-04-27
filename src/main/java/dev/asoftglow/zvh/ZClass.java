@@ -8,7 +8,8 @@ import org.jetbrains.annotations.NotNull;
 
 import dev.asoftglow.zvh.util.Util;
 
-public class ZClass {
+public class ZClass
+{
   @NotNull
   public final String name;
   @NotNull
@@ -18,16 +19,19 @@ public class ZClass {
   public final PotionEffect[] effects;
   public ItemStack[] items = new ItemStack[0];
 
-  public ZClass(@NotNull String name, @NotNull Material icon, int price, ItemStack[] items, PotionEffect[] effects) {
+  public ZClass(@NotNull String name, @NotNull Material icon, int price, ItemStack[] items, PotionEffect[] effects)
+  {
     this.name = name;
     this.icon = icon;
     this.price = price;
     if (items != null)
       this.items = items;
-    this.effects = effects == null ? new PotionEffect[] {} : effects;
+    this.effects = effects == null ? new PotionEffect[]
+    {} : effects;
   }
 
-  public void give(@NotNull Player player) {
+  public void give(@NotNull Player player)
+  {
     player.getInventory().setContents(items);
     for (var e : effects)
       Util.givePotionEffect(player, e);

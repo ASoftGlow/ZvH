@@ -5,12 +5,15 @@ import java.util.Map;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-public class Music {
+public class Music
+{
   // Make a map for player toggles
   static Map<Player, String> musics = new HashMap<>();
 
-  public static void play(Player player, String song) {
-    if (musics.get(player) != null) {
+  public static void play(Player player, String song)
+  {
+    if (musics.get(player) != null)
+    {
       stop(player);
     }
     musics.put(player, song);
@@ -18,14 +21,16 @@ public class Music {
         "execute as " + player.getName() + " run function " + song + ":play");
   }
 
-  public static void stop(Player player) {
+  public static void stop(Player player)
+  {
     if (musics.get(player) == null)
       return;
     Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(),
         "execute as " + player.getName() + " run function " + musics.get(player) + ":stop");
   }
 
-  public static void playLobby(Player player) {
+  public static void playLobby(Player player)
+  {
     play(player, "a_decaying_city");
   }
 }

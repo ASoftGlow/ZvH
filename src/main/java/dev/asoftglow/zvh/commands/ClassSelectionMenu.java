@@ -17,18 +17,22 @@ import dev.asoftglow.zvh.ZClassManager;
 import dev.asoftglow.zvh.ZvH;
 import dev.asoftglow.zvh.util.SelectButton;
 
-public class ClassSelectionMenu implements Listener {
+public class ClassSelectionMenu implements Listener
+{
   private static MenuHolder<ZvH> menu;
   private static InventoryView lastView;
 
-  private boolean SelectionHandler(Player player, ZClass zClass) {
-    if (player.getGameMode() == GameMode.CREATIVE) {
+  private boolean SelectionHandler(Player player, ZClass zClass)
+  {
+    if (player.getGameMode() == GameMode.CREATIVE)
+    {
       player.addScoreboardTag("clicked");
       zClass.give(player);
       return true;
     }
-    if (ZvH.coins.getScore(player).getScore() >= zClass.price) {
-      ZvH.changeCoins(player, -zClass.price);
+    if (ZvH.coins.getScore(player).getScore() >= zClass.price)
+    {
+      ZvH.changeCoins(player, -zClass.price, "shopping");
       player.addScoreboardTag("clicked");
       zClass.give(player);
       return true;
@@ -36,7 +40,8 @@ public class ClassSelectionMenu implements Listener {
     return false;
   }
 
-  public ClassSelectionMenu(ZvH zvh) {
+  public ClassSelectionMenu(ZvH zvh)
+  {
     menu = new MenuHolder<>(zvh, 9, "Choose a class:");
 
     menu.setButton(8, new SelectButton<ZvH>((new ItemBuilder(Material.BARRIER)).name("§r§6Leave").build(), e -> {
@@ -46,7 +51,8 @@ public class ClassSelectionMenu implements Listener {
     }));
 
     int i = 0;
-    for (var zClass : ZClassManager.zClasses.values()) {
+    for (var zClass : ZClassManager.zClasses.values())
+    {
       var item = new ItemBuilder(zClass.icon).name("§r§f" + zClass.name);
       if (zClass.price > 0)
         item = item.lore("Costs " + zClass.price);
@@ -55,13 +61,16 @@ public class ClassSelectionMenu implements Listener {
     }
   }
 
-  public static void showTo(Player player) {
+  public static void showTo(Player player)
+  {
     lastView = player.openInventory(menu.getInventory());
   }
 
   @EventHandler
-  public void onClose(InventoryCloseEvent e) {
-    if (e.getPlayer() instanceof Player && lastView == e.getView()) {
+  public void onClose(InventoryCloseEvent e)
+  {
+    if (e.getPlayer() instanceof Player && lastView == e.getView())
+    {
       if (e.getPlayer().getScoreboardTags().contains("clicked"))
         e.getPlayer().removeScoreboardTag("clicked");
       else

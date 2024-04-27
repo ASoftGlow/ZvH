@@ -11,56 +11,62 @@ import org.jetbrains.annotations.Nullable;
 
 import dev.asoftglow.zvh.Music;
 
-public class MusicCommands implements CommandExecutor, TabCompleter {
-
+public class MusicCommands implements CommandExecutor, TabCompleter
+{
   @Override
-  public boolean onCommand(CommandSender sender, Command command, String label,
-      String[] args) {
+  public boolean onCommand(CommandSender sender, Command command, String label, String[] args)
+  {
     if (args.length == 0 || !(sender instanceof Player))
       return false;
     final var player = (Player) sender;
-    switch (args[0]) {
-      case "play":
-        if (args.length < 2)
-          return false;
-        switch (args[1]) {
-          case "a_decaying_city":
-          case "adc":
-            Music.play(player, "a_decaying_city");
-            player.sendMessage("Now Playing: A Decaying City");
-            break;
-          case "survive_the_night":
-          case "stn":
-            Music.play(player, "survive_the_night");
-            player.sendMessage("Now Playing: Survive The Night");
-            break;
-        }
-        break;
-      case "stop":
-        Music.stop(player);
-        player.sendMessage("Now Stopping All Music");
-        break;
-      default:
+    switch (args[0])
+    {
+    case "play":
+      if (args.length < 2)
         return false;
+      switch (args[1])
+      {
+      case "a_decaying_city":
+      case "adc":
+        Music.play(player, "a_decaying_city");
+        player.sendMessage("Now Playing: A Decaying City");
+        break;
+      case "survive_the_night":
+      case "stn":
+        Music.play(player, "survive_the_night");
+        player.sendMessage("Now Playing: Survive The Night");
+        break;
+      }
+      break;
+    case "stop":
+      Music.stop(player);
+      player.sendMessage("Now Stopping All Music");
+      break;
+    default:
+      return false;
     }
     return true;
   }
 
   @Override
   public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
-      @NotNull String label, @NotNull String[] args) {
-    if (args.length == 1) {
+      @NotNull String label, @NotNull String[] args)
+  {
+    if (args.length == 1)
+    {
       return List.of("play", "stop");
     }
-    switch (args[0]) {
-      case "play":
-        if (args.length == 2) {
-          return List.of("a_decaying_city", "survive_the_night");
-        }
-        break;
+    switch (args[0])
+    {
+    case "play":
+      if (args.length == 2)
+      {
+        return List.of("a_decaying_city", "survive_the_night");
+      }
+      break;
 
-      default:
-        break;
+    default:
+      break;
     }
 
     return null;

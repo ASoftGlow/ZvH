@@ -11,13 +11,15 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import dev.asoftglow.zvh.util.Util;
 import net.kyori.adventure.text.Component;
 
-public class JoinLeaveListener implements Listener {
-
+public class JoinLeaveListener implements Listener
+{
   @EventHandler
-  public void onJoin(PlayerJoinEvent e) {
+  public void onJoin(PlayerJoinEvent e)
+  {
     var player = e.getPlayer();
     e.joinMessage(Component.text("Welcome, %s!".formatted(player.getName())));
-    if (!e.getPlayer().hasPlayedBefore()) {
+    if (!e.getPlayer().hasPlayedBefore())
+    {
       e.getPlayer().getAdvancementProgress(Bukkit.getAdvancement(NamespacedKey.fromString("zvh:root")))
           .awardCriteria("join");
     }
@@ -28,7 +30,8 @@ public class JoinLeaveListener implements Listener {
   }
 
   @EventHandler
-  public void onLeave(PlayerQuitEvent e) {
+  public void onLeave(PlayerQuitEvent e)
+  {
     var player = e.getPlayer();
     Game.removeBoard(player);
     Game.leave(player);
