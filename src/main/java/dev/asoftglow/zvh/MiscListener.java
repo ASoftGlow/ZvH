@@ -2,17 +2,15 @@ package dev.asoftglow.zvh;
 
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.entity.EntityDismountEvent;
-import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
-import org.bukkit.event.entity.SlimeSplitEvent;
-import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerEvent;
+import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
+import org.bukkit.event.player.PlayerPickupArrowEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -20,39 +18,25 @@ import org.bukkit.inventory.ItemStack;
 import dev.asoftglow.zvh.commands.ClassSelectionMenu;
 import dev.asoftglow.zvh.util.Util;
 
-import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
-import io.papermc.paper.event.player.AsyncChatEvent;
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 public class MiscListener implements Listener
 {
-  private PlainTextComponentSerializer plainSerializer = PlainTextComponentSerializer.plainText();
-
-  @EventHandler
-  public void onChatMsg(AsyncChatEvent e)
-  {
-    // e.message(e.message().color(NamedTextColor.GOLD));
-  }
-
   @EventHandler
   public void onRespawn(PlayerRespawnEvent e)
   {
@@ -76,56 +60,45 @@ public class MiscListener implements Listener
     var player = e.getPlayer();
     if (Game.isPlaying(player))
     {
+      if (doingDeathAnimation)
+      {
+        e.setCancelled(true);
+        return;
+      }
+      DiscordBot.sendMessage(e.deathMessage());
       // kill rewards
-      Game.handleKillRewards(player);
+      Combat.handleKillRewards(player);
 
       // last human
       if (ZvH.humansTeam.hasPlayer(player) && Game.getHumansCount() == 1)
       {
-        if (doingDeathAnimation)
-          return;
         doingDeathAnimation = true;
         final var tm = player.getServer().getServerTickManager();
         // keep player alive
         // TODO: increment stat
         e.setCancelled(true);
-        tm.setFrozen(true);
+        tm.setTickRate(5);
 
         for (var p : Game.playing)
         {
           p.setGameMode(GameMode.ADVENTURE);
-
-          var ploc = p.getLocation();
-          ploc.setY(ploc.getY() + 0.6d);
-          var loc = new Location(p.getWorld(), ploc.getX() - 0.5d, ploc.getY() - 0.1d, ploc.getZ() - 0.5d);
-
-          var marker = p.getWorld().createEntity(ploc, ArmorStand.class);
-          marker.getScoreboardTags().add("temp");
-          marker.setMarker(true);
-          marker.setInvisible(true);
-          marker.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(0.1f);
-          marker.addPassenger(p);
-
-          var carpet = p.getWorld().createEntity(loc, BlockDisplay.class);
-          carpet.setBlock(Material.PURPLE_CARPET.createBlockData());
-          carpet.getScoreboardTags().add("temp");
-
-          marker.spawnAt(marker.getLocation());
-          carpet.spawnAt(carpet.getLocation());
+          p.closeInventory();
+          p.playSound(player, e.getDeathSound(), 1f, 1f);
+          p.sendMessage(e.deathMessage());
         }
-        // allow carpets to appear
-        tm.stepGameIfFrozen(1);
+        Game.rewardZombies();
 
         Bukkit.getScheduler().runTaskLater(ZvH.singleton, () -> {
-          for (var e2 : ZvH.world.getEntities())
+          for (var p : Game.playing)
           {
-            if (e2.getScoreboardTags().contains("temp"))
-              e2.remove();
+            p.setGameMode(GameMode.SPECTATOR);
+            tm.setTickRate(20);
           }
-          Game.zombiesWin();
-          tm.setFrozen(false);
-          doingDeathAnimation = false;
-        }, 20 * 5);
+          Bukkit.getScheduler().runTaskLater(ZvH.singleton, () -> {
+            Game.stop();
+            doingDeathAnimation = false;
+          }, 20 * 5);
+        }, 20 * 2);
       }
       player.getInventory().clear();
       player.setItemOnCursor(null);
@@ -160,10 +133,18 @@ public class MiscListener implements Listener
   }
 
   @EventHandler
-  public void onDrop(PlayerDropItemEvent e)
+  public void onDamage(EntityDamageEvent e)
   {
-    if (e.getPlayer().getGameMode() != GameMode.CREATIVE)
-      e.setCancelled(true);
+    if (e.getEntityType() == EntityType.PLAYER)
+    {
+      var player = (Player) e.getEntity();
+      if (!Game.isPlaying(player))
+        return;
+      var damager = e.getDamageSource().getCausingEntity();
+      if (damager == null || !(damager instanceof Player))
+        return;
+      Combat.handleDamage(player, (Player) damager);
+    }
   }
 
   @EventHandler
@@ -205,7 +186,7 @@ public class MiscListener implements Listener
       if (target.getScoreboardTags().contains("npc"))
       {
         e.setCancelled(true);
-        switch (plainSerializer.serialize(target.customName()))
+        switch (ZvH.plainSerializer.serialize(target.customName()))
         {
         case "Play":
           Game.play(e.getPlayer());
@@ -220,16 +201,6 @@ public class MiscListener implements Listener
         }
       }
     }
-  }
-
-  @EventHandler
-  public void onBlockBreak(BlockBreakEvent e)
-  {
-    if (Game.isActive() && e.getPlayer().getGameMode().equals(GameMode.SURVIVAL))
-      if (e.getBlock().getLocation().getBlockY() == MapControl.current_size.bounds().y)
-      {
-        e.setCancelled(true);
-      }
   }
 
   @EventHandler
@@ -248,12 +219,12 @@ public class MiscListener implements Listener
         var nearest = Util.getClosestTeamMember(player, ZvH.humansTeam);
         if (nearest == null)
         {
-          player.playSound(player.getLocation(), Sound.BLOCK_REDSTONE_TORCH_BURNOUT, 0.8f, 1f);
+          Util.playSound(player, Sound.BLOCK_REDSTONE_TORCH_BURNOUT, 0.8f, 1f);
           player.sendActionBar(Component.text("Tracker calibration error", NamedTextColor.RED));
           return;
         }
         player.setCompassTarget(nearest.getLocation());
-        player.playSound(player.getLocation(), Sound.BLOCK_PISTON_CONTRACT, 0.8f, 1.5f);
+        Util.playSound(player, Sound.BLOCK_PISTON_CONTRACT, 0.8f, 1.5f);
         player.sendActionBar(Component.text("Calibrated tracker", NamedTextColor.GRAY));
       } else if (e.getItem().getType() == Material.GUNPOWDER)
       {
@@ -271,31 +242,6 @@ public class MiscListener implements Listener
   }
 
   @EventHandler
-  public void onSlimeSplit(SlimeSplitEvent e)
-  {
-    e.setCancelled(true);
-  }
-
-  private static Set<Material> explodeWhitelist = Set.of(Material.GRAVEL, Material.LIGHT_GRAY_WOOL, Material.LADDER,
-      Material.COBWEB);
-
-  @EventHandler
-  public void onEntityExplode(EntityExplodeEvent e)
-  {
-    if (e.getEntity().getType() == EntityType.PRIMED_TNT)
-    {
-      var destroyed = e.blockList();
-      var it = destroyed.iterator();
-      while (it.hasNext())
-      {
-        var block = it.next();
-        if (!explodeWhitelist.contains(block.getType()))
-          it.remove();
-      }
-    }
-  }
-
-  @EventHandler
   public void onConsume(PlayerItemConsumeEvent e)
   {
     var item = e.getItem();
@@ -305,12 +251,44 @@ public class MiscListener implements Listener
     }
   }
 
-  @EventHandler
-  public void onDismount(EntityDismountEvent e)
+  @EventHandler @SuppressWarnings("deprecation")
+  public void onArrowPickUp(PlayerPickupArrowEvent e)
   {
-    if (e.getEntity() instanceof Player && e.getDismounted().getScoreboardTags().contains("temp"))
+    if (ZvH.humansTeam.hasPlayer(e.getPlayer())
+        && ZvH.zombiesTeam.hasPlayer(Bukkit.getPlayer(e.getArrow().getOwnerUniqueId())))
     {
-      e.setCancelled(true);
+      if (e.getArrow().getUniqueId().toString().charAt(0) % 2 != 0)
+      {
+        e.setCancelled(true);
+      }
+    }
+  }
+
+  @EventHandler
+  public void onFish(PlayerFishEvent e)
+  {
+    switch (e.getState())
+    {
+    case CAUGHT_FISH:
+      ((Item) e.getCaught()).setItemStack(null);
+      e.setExpToDrop(0);
+
+      final int floor = 2;
+      final int range = 3;
+      var v = ThreadLocalRandom.current().nextInt(range + floor + 1) - floor;
+      if (v > 0)
+      {
+        Util.playSoundAllAt(e.getPlayer().getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f,
+            0.5f + (float) v / (float) range);
+        ZvH.changeCoins(e.getPlayer(), v * v, "fishing");
+      }
+      else
+      {
+        e.getPlayer().sendActionBar(Component.text("Nothing..."));
+      }
+      break;
+    default:
+      break;
     }
   }
 }

@@ -4,7 +4,7 @@ version: "${VERSION}"
 api-version: "1.16"
 author: ASoftGlow
 description: DESCRIPTION
-depend: ["GuiLib", "FastAsyncWorldEdit", "NoteBlockAPI"]
+depend: ["GuiLib", "FastAsyncWorldEdit"]
 commands:
   class:
     description: Opens class switcher
@@ -16,10 +16,6 @@ commands:
     aliases: l
     description: Exits the arena
   resetmap:
-    description: idk
-    permission: admin.manage.serverpermission
-  afk:
-    description: Sends an afk notification to everyone
     permission: admin.manage.serverpermission
   shop:
     description: Opens the shop while in-game
@@ -29,15 +25,16 @@ commands:
   music:
     description: Base command to control music
   modifier:
+    permission: admin.manage.serverpermission
   join:
     description: Join the current game, if one is running, otherwise join the queue
-
-permissions:
-  example.test:
-    description: DESCRIPTION
-    default: true
-  example.*:
-    description: Grants all other permissions
-    default: false
-    children:
-      example.test: true
+  guide:
+    description: Opens the guide book
+  mute:
+    permission: admin.manage.serverpermission
+  unmute:
+    permission: admin.manage.serverpermission
+  mutelist:
+    permission: admin.manage.serverpermission
+  rules:
+  discord:

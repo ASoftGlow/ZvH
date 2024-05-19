@@ -6,7 +6,7 @@ public abstract class WeightedArray
 {
   public interface Item
   {
-    public float weight();
+    public float getWeight();
   }
 
   public static <T extends WeightedArray.Item> T getRandomFrom(List<T> items)
@@ -16,14 +16,14 @@ public abstract class WeightedArray
     float totalWeight = 0f;
     for (var i : items)
     {
-      totalWeight += i.weight();
+      totalWeight += i.getWeight();
     }
 
     // Now choose a random item.
     int idx = 0;
     for (float r = (float) Math.random() * totalWeight; idx < items.size() - 1; ++idx)
     {
-      r -= items.get(idx).weight();
+      r -= items.get(idx).getWeight();
       if (r <= 0.0)
         break;
     }
@@ -37,14 +37,14 @@ public abstract class WeightedArray
     float totalWeight = 0f;
     for (var i : items)
     {
-      totalWeight += i.weight();
+      totalWeight += i.getWeight();
     }
 
     // Now choose a random item.
     int idx = 0;
     for (float r = (float) Math.random() * totalWeight; idx < items.length - 1; ++idx)
     {
-      r -= items[idx].weight();
+      r -= items[idx].getWeight();
       if (r <= 0.0)
         break;
     }

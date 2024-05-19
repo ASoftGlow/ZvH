@@ -26,7 +26,7 @@ public class ZClassManager
     classesConfigDirectory.toFile().mkdir();
   }
 
-  public static void registerZClass(String name, Material icon, int price, PotionEffect[] effects)
+  public static void registerZClass(String name, Material icon, int price, PotionEffect... effects)
   {
     zClasses.put(name, new ZClass(name, icon, price, readZClass(name), effects));
     logger.info("Registered class %s.".formatted(name));

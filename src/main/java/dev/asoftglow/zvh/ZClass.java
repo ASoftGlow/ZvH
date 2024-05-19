@@ -6,8 +6,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
-import dev.asoftglow.zvh.util.Util;
-
 public class ZClass
 {
   @NotNull
@@ -34,6 +32,8 @@ public class ZClass
   {
     player.getInventory().setContents(items);
     for (var e : effects)
-      Util.givePotionEffect(player, e);
+    {
+      player.addPotionEffect(e);
+    }
   }
 }

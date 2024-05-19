@@ -1,8 +1,14 @@
 package dev.asoftglow.zvh;
 
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Level;
 import java.util.ArrayList;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.lang.IllegalArgumentException;
 
 import org.bukkit.Bukkit;
@@ -21,27 +27,43 @@ import org.bukkit.util.Vector;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.extension.input.ParserContext;
+import com.sk89q.worldedit.extent.clipboard.Clipboard;
+import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormat;
+import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormats;
+import com.sk89q.worldedit.extent.clipboard.io.ClipboardReader;
+import com.sk89q.worldedit.function.operation.ForwardExtentCopy;
+import com.sk89q.worldedit.function.operation.Operations;
 import com.sk89q.worldedit.function.pattern.Pattern;
 import com.sk89q.worldedit.math.BlockVector3;
+import com.sk89q.worldedit.math.transform.AffineTransform;
 import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.regions.Region;
+import com.sk89q.worldedit.session.ClipboardHolder;
+import com.sk89q.worldedit.world.block.BaseBlock;
 
+import lombok.Getter;
+
+import dev.asoftglow.zvh.commands.MapModifierMenu.MapModifier;
 import dev.asoftglow.zvh.util.Util;
 import dev.asoftglow.zvh.util.WeightedArray;
 
 @SuppressWarnings("null")
 public abstract class MapControl
 {
-  public static final class MapFeature implements WeightedArray.Item
+  public static final class MapFeature implements WeightedArray.Item, MapModifier
   {
+    @Getter
     public final String name;
+    @Getter
     public final String description;
+    @Getter
     public final Material icon;
+    @Getter
     final float weight;
 
-    public float weight()
+    public String getType()
     {
-      return weight;
+      return "Feature";
     }
 
     public MapFeature(String name, String description, Material icon, float weight)
@@ -59,16 +81,16 @@ public abstract class MapControl
 
   static final class MapBounds
   {
-    public static final int height = 30;
-    public final int x1, x2, z1, z2, y;
+    public final int x1, x2, z1, z2, y, h;
 
-    public MapBounds(int x1, int z1, int x2, int z2, int y)
+    public MapBounds(int x1, int z1, int x2, int z2, int y, int h)
     {
       this.x1 = x1;
       this.x2 = x2;
       this.z1 = z1;
       this.z2 = z2;
       this.y = y;
+      this.h = h;
     }
 
     public int getXLength()
@@ -80,6 +102,26 @@ public abstract class MapControl
     {
       return Math.abs(z2 - z1);
     }
+
+    public int getXMiddle()
+    {
+      return getXLength() / 2 + x1;
+    }
+
+    public int getZMiddle()
+    {
+      return getZLength() / 2 + z1;
+    }
+
+    public BlockVector3 getFirstBV()
+    {
+      return BlockVector3.at(x1, y, z1);
+    }
+
+    public BlockVector3 getSecondBV()
+    {
+      return BlockVector3.at(x2, y, z2);
+    }
   }
 
   static MapSize current_size = null;
@@ -87,26 +129,39 @@ public abstract class MapControl
 
   static MapBounds b;
   static MapSize last_size = null;
-  static final ParserContext parserContext = new ParserContext();
 
   final static MapSize[] mapSizes =
-  { new MapSize(new MapBounds(-47, 16, 52, 68, 1), 1, new Vector(40, 2, 42), new Vector(-40, 2, 42)) };
+  { new MapSize(new MapBounds(-47, 16, 52, 68, 1, 30), 1, new Vector(36, 2, 42), new Vector(-37, 2, 42)) };
   public final static MapFeature[] features = new MapFeature[]
-  {
-      // new MapFeature("Bridge", "A giant bridge located in the center",
-      // Material.OAK_FENCE, 0.1f),
-      // new MapFeature("Fortress", "A giant square fortress located in the center",
-      // Material.IRON_DOOR, 0.1f),
+  { //
+      new MapFeature("Bridge", "A giant bridge located in the center", Material.LADDER, 0.15f),
+      new MapFeature("Fortress", "A giant fortress located in the center", Material.IRON_DOOR, 0.1f),
       new MapFeature("Bars", "Long, square bars randomly spanning the sky", Material.IRON_BARS, 0.2f),
-      new MapFeature("Pillars", "Tall, square pillars randomly spread across the map", Material.QUARTZ_PILLAR, 0.2f) };
-  static final Pattern bars_fp, pillars_fp;
+      new MapFeature("Pillars", "Tall, square pillars randomly spread across the map", Material.QUARTZ_PILLAR, 0.25f),
+      new MapFeature("Grid", "A grid spanning across the sky", Material.OAK_TRAPDOOR, 0.15f),
+      new MapFeature(null, null, null, 0.5f)
+      /**/ };
+  static final File fortress_schem = ZvH.singleton.getDataFolder().toPath().resolve("schematics/fort.schem").toFile();
+  static final File bridge_schem = ZvH.singleton.getDataFolder().toPath().resolve("schematics/bridge.schem").toFile();
+  static final Pattern bars_p, pillars_p, fortress_p, bridge_p1, bridge_p2, grid_p;
+  static final Set<BaseBlock> red_filter, orange_filter;
   static
   {
+    final var parserContext = new ParserContext();
     parserContext.setActor(BukkitAdapter.adapt(Bukkit.getConsoleSender()));
-    bars_fp = WorldEdit.getInstance().getPatternFactory().parseFromInput("60%light_gray_wool,30%gravel,10%cobweb",
-        parserContext);
-    pillars_fp = WorldEdit.getInstance().getPatternFactory().parseFromInput("5%light_gray_wool,55%gravel,40%cobweb",
-        parserContext);
+    final var pf = WorldEdit.getInstance().getPatternFactory();
+
+    bars_p = pf.parseFromInput("60%light_gray_wool,30%gravel,10%cobweb", parserContext);
+    pillars_p = pf.parseFromInput("5%light_gray_wool,55%gravel,40%cobweb", parserContext);
+    fortress_p = pf.parseFromInput("75%light_gray_wool,25%gravel", parserContext);
+    bridge_p1 = pf.parseFromInput("50%light_gray_wool,50%gravel", parserContext);
+    bridge_p2 = pf.parseFromInput("90%light_gray_wool,10%gravel", parserContext);
+    grid_p = pf.parseFromInput("80%light_gray_wool,20%gravel", parserContext);
+
+    red_filter = new HashSet<BaseBlock>();
+    red_filter.add(BukkitAdapter.adapt(Material.RED_WOOL.createBlockData()).toBaseBlock());
+    orange_filter = new HashSet<BaseBlock>();
+    orange_filter.add(BukkitAdapter.adapt(Material.ORANGE_WOOL.createBlockData()).toBaseBlock());
   }
 
   public static void chooseMap(int playerCount)
@@ -123,15 +178,23 @@ public abstract class MapControl
       throw new IllegalArgumentException("No maps for such few players");
     current_size = Util.pickRandom(sizes);
     current_feature = WeightedArray.getRandomFrom(features);
-    // current_feature = features[1];
-    ZvH.singleton.getLogger().info("Feature: " + current_feature.name);
+    if (current_feature.name == null)
+      current_feature = null;
+    else
+      ZvH.singleton.getLogger().info("Feature: " + current_feature.name);
+  }
+
+  public static void setFeature(int index)
+  {
+    if (index < 0 || index > features.length - 1)
+      return;
+    current_feature = features[index];
   }
 
   public static Location getLocation(Player player, Vector pos, Vector look_pos)
   {
-    var v = pos.clone().subtract(look_pos);
-    return new Location(player.getWorld(), pos.getX(), pos.getY(), pos.getZ(), (float) Math.atan2(v.getX(), v.getZ()),
-        0f);
+    return new Location(player.getWorld(), pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
+        (float) Math.toDegrees(Math.atan2(pos.getX() - look_pos.getX(), pos.getZ() - look_pos.getZ())), 0);
   }
 
   public static Location getLocation(World world, Vector pos)
@@ -143,12 +206,12 @@ public abstract class MapControl
   {
     // Walls
     ZvH.editSession.setBlocks(
-        (Region) new CuboidRegion(BlockVector3.at(b.x1, b.y - 1, b.z1),
-            BlockVector3.at(b.x2, b.y + MapBounds.height, b.z2)).getFaces(),
+        (Region) new CuboidRegion(BlockVector3.at(b.x1, b.y - 1, b.z1), BlockVector3.at(b.x2, b.y + b.h, b.z2))
+            .getFaces(),
         BukkitAdapter.asBlockType(Material.BARRIER).getDefaultState());
     ZvH.editSession.setBlocks(
-        (Region) new CuboidRegion(BlockVector3.at(b.x1, b.y + MapBounds.height + 1, b.z1),
-            BlockVector3.at(b.x2, b.y + MapBounds.height + 2, b.z2)).getWalls(),
+        (Region) new CuboidRegion(BlockVector3.at(b.x1, b.y + b.h + 1, b.z1),
+            BlockVector3.at(b.x2, b.y + b.h + 2, b.z2)).getWalls(),
         BukkitAdapter.asBlockType(Material.BARRIER).getDefaultState());
 
     // Floor
@@ -171,15 +234,7 @@ public abstract class MapControl
       e.remove();
     }
 
-    var slime = ZvH.world.createEntity(getLocation(ZvH.world, current_size.humanSpawn), Slime.class);
-    slime.setSize(10);
-    slime.setInvulnerable(true);
-    slime.setAI(false);
-    slime.setInvisible(true);
-    ZvH.zombiesTeam.addEntity(slime);
-    slime.spawnAt(slime.getLocation());
-
-    slime = ZvH.world.createEntity(getLocation(ZvH.world, current_size.zombieSpawn), Slime.class);
+    var slime = ZvH.world.createEntity(getLocation(ZvH.world, current_size.zombieSpawn), Slime.class);
     slime.setSize(8);
     slime.setInvulnerable(true);
     slime.setAI(false);
@@ -193,11 +248,10 @@ public abstract class MapControl
     b = current_size.bounds;
 
     // Clear building space
-    ZvH.editSession
-        .setBlocks(
-            (Region) new CuboidRegion(BlockVector3.at(b.x1 + 1, b.y + 1, b.z1 + 1),
-                BlockVector3.at(b.x2 - 1, b.y + 29, b.z2 - 1)),
-            BukkitAdapter.asBlockType(Material.AIR).getDefaultState());
+    ZvH.editSession.setBlocks(
+        (Region) new CuboidRegion(BlockVector3.at(b.x1 + 1, b.y + 1, b.z1 + 1),
+            BlockVector3.at(b.x2 - 1, b.y + b.h - 1, b.z2 - 1)),
+        BukkitAdapter.asBlockType(Material.AIR).getDefaultState());
     ZvH.editSession.flushQueue();
 
     if (last_size != current_size)
@@ -216,13 +270,13 @@ public abstract class MapControl
 
         while (c-- != 0)
         {
-          var height = b.y + ThreadLocalRandom.current().nextInt(6, MapBounds.height - 1 - bsize);
+          var height = b.y + ThreadLocalRandom.current().nextInt(6, b.h - 1 - bsize);
           var slide = ThreadLocalRandom.current().nextInt(b.getXLength() / 2 - bsize) + 1;
 
           ZvH.editSession.setBlocks((Region) new CuboidRegion(BlockVector3.at(b.x2 - slide, height, b.z2 - 1),
-              BlockVector3.at(b.x2 - slide - bsize, height + bsize, b.z1 + 1)), bars_fp);
+              BlockVector3.at(b.x2 - slide - bsize, height + bsize, b.z1 + 1)), bars_p);
           ZvH.editSession.setBlocks((Region) new CuboidRegion(BlockVector3.at(b.x1 + slide, height, b.z2 - 1),
-              BlockVector3.at(b.x1 + slide + bsize, height + bsize, b.z1 + 1)), bars_fp);
+              BlockVector3.at(b.x1 + slide + bsize, height + bsize, b.z1 + 1)), bars_p);
         }
         break;
 
@@ -232,7 +286,7 @@ public abstract class MapControl
 
         while (c1-- != 0)
         {
-          var height = ThreadLocalRandom.current().nextInt(4, MapBounds.height - 8);
+          var height = ThreadLocalRandom.current().nextInt(4, b.h - 8);
           var x_slide = ThreadLocalRandom.current().nextInt(b.getXLength() / 2 - psize);
           var z_slide = ThreadLocalRandom.current().nextInt(b.getZLength() - psize - 1);
 
@@ -240,13 +294,84 @@ public abstract class MapControl
               .setBlocks(
                   (Region) new CuboidRegion(BlockVector3.at(b.x2 - x_slide - 1, b.y + 1, b.z1 + z_slide + 1),
                       BlockVector3.at(b.x2 - x_slide - psize - 1, b.y + height, b.z1 + z_slide + psize + 1)),
-                  pillars_fp);
+                  pillars_p);
           ZvH.editSession
               .setBlocks(
                   (Region) new CuboidRegion(BlockVector3.at(b.x1 + x_slide + 1, b.y + 1, b.z1 + z_slide + 1),
                       BlockVector3.at(b.x1 + x_slide + psize + 1, b.y + height, b.z1 + z_slide + psize + 1)),
-                  pillars_fp);
+                  pillars_p);
         }
+        break;
+
+      case "Fortress":
+        ClipboardFormat format = ClipboardFormats.findByFile(fortress_schem);
+        try (ClipboardReader reader = format.getReader(new FileInputStream(fortress_schem)))
+        {
+          Clipboard clipboard = reader.read();
+          clipboard.replaceBlocks(clipboard.getRegion(), red_filter, fortress_p);
+          clipboard.paste(ZvH.editSession, BlockVector3.at(b.getXMiddle() + 2, b.y + 1, b.getZMiddle()), false, false,
+              false);
+          // Operations.complete(clipboard.commit());
+          clipboard.close();
+        } catch (IOException e)
+        {
+          ZvH.singleton.getLogger().log(Level.SEVERE, "Failed to load schematic");
+          e.printStackTrace();
+        }
+        break;
+
+      case "Bridge":
+        ClipboardFormat format1 = ClipboardFormats.findByFile(bridge_schem);
+        try (ClipboardReader reader = format1.getReader(new FileInputStream(bridge_schem)))
+        {
+          Clipboard clipboard = reader.read();
+
+          final var origin = BlockVector3.at(current_size.humanSpawn.getX() + 20, b.y + 1, b.z2 - 5);
+          clipboard.paste(ZvH.editSession, origin, false, false, false);
+          final var cbh = new ClipboardHolder(clipboard);
+          final var flipZ = new AffineTransform()
+              .scale(BlockVector3.UNIT_Z.abs().multiply(-2).add(1, 1, 1).toVector3());
+          cbh.setTransform(flipZ);
+          var op = cbh.createPaste(ZvH.editSession)
+              .to(BlockVector3.at(current_size.humanSpawn.getX() + 20, b.y + 1, b.z1 + 5)).build();
+          Operations.complete(op);
+          cbh.close();
+          ZvH.editSession.flushQueue();
+
+          // relative to schematic
+          var seg_reg = new CuboidRegion(BlockVector3.at(-2, 25, -11), BlockVector3.at(2, 23, -16));
+          // relative to world
+          seg_reg.shift(origin);
+
+          var copy = new ForwardExtentCopy(ZvH.editSession, seg_reg, ZvH.editSession, seg_reg.getMinimumPoint());
+          copy.setRepetitions((b.getZLength() - 36) / 6);
+          copy.setTransform(
+              new AffineTransform().translate(BlockVector3.UNIT_MINUS_Z.multiply(seg_reg.getDimensions())));
+          Operations.complete(copy);
+          ZvH.editSession.flushQueue();
+
+          // randomize blocks
+          var reg = new CuboidRegion(BlockVector3.at(current_size.humanSpawn.getX() + 20 + 2, b.y + 1, b.z2 - 5),
+              BlockVector3.at(current_size.humanSpawn.getX() + 20 - 2, b.y + 1 + 26, b.z1 + 5));
+          ZvH.editSession.replaceBlocks(reg, red_filter, bridge_p1);
+          ZvH.editSession.replaceBlocks(reg, orange_filter, bridge_p2);
+        } catch (IOException e)
+        {
+          ZvH.singleton.getLogger().log(Level.SEVERE, "Failed to load schematic");
+          e.printStackTrace();
+        }
+        break;
+
+      case "Grid":
+        final int size = 5;
+        final var cb = new CuboidRegion(BlockVector3.at(b.x1 + 1, b.y + b.h - 10 - 1, b.z1 + 1),
+            BlockVector3.at(b.x2 - 1, b.y + b.h - 10 - 1, b.z2 - 1));
+        cb.forEach(block -> {
+          if ((block.getX() % size == 0) || (block.getZ() % size == 0))
+          {
+            ZvH.editSession.setBlock(block, grid_p);
+          }
+        });
         break;
       }
       ZvH.editSession.flushQueue();

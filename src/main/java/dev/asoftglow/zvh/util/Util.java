@@ -7,14 +7,15 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
+import org.bukkit.Location;
+
+import net.kyori.adventure.sound.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.potion.PotionEffect;
 import org.bukkit.scoreboard.Team;
 
+import dev.asoftglow.zvh.DiscordBot;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
@@ -63,15 +64,22 @@ public abstract class Util
     return playersWithTag;
   }
 
-  public static void playSound(Player player, Sound sound, float volume, float pitch)
+  public static void playSound(Player player, org.bukkit.Sound sound, float volume, float pitch)
   {
-    player.playSound(player.getLocation(), sound, SoundCategory.MASTER, volume, pitch);
+    player.playSound(Sound.sound(sound, Sound.Source.MASTER, volume, pitch), player);
   }
 
-  public static void playSoundAll(Sound sound, float volume, float pitch)
+  public static void playSoundAll(org.bukkit.Sound sound, float volume, float pitch)
   {
     Bukkit.getServer().getOnlinePlayers().forEach(p -> {
       playSound(p, sound, volume, pitch);
+    });
+  }
+
+  public static void playSoundAllAt(Location location, org.bukkit.Sound sound, float volume, float pitch)
+  {
+    Bukkit.getServer().getOnlinePlayers().forEach(p -> {
+      p.playSound(location, sound, volume, pitch);
     });
   }
 
@@ -82,17 +90,17 @@ public abstract class Util
     return choice;
   }
 
-  public static void givePotionEffect(Player player, PotionEffect e)
-  {
-    player.getServer().dispatchCommand(player.getServer().getConsoleSender(),
-        // Can't disable potion particles without manual packet modification
-        "effect give %s %s infinite %d true".formatted(player.getName(), e.getType().key().asString(),
-            e.getAmplifier()));
-  }
-
   public static void sendServerMsg(String content)
   {
     var c = Component.text("> ").append(Component.text(content, msg_style));
+    for (var p : Bukkit.getOnlinePlayers())
+      p.sendMessage(c);
+    DiscordBot.sendMessage("```" + content + "```");
+  }
+
+  public static void sendServerMsg(Component content)
+  {
+    var c = Component.text("> ").append(Component.empty().style(msg_style).append(content));
     for (var p : Bukkit.getOnlinePlayers())
       p.sendMessage(c);
   }

@@ -27,8 +27,13 @@ import dev.asoftglow.zvh.commands.MusicCommands;
 import dev.asoftglow.zvh.commands.ZvHCommands;
 import dev.asoftglow.zvh.util.Util;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import xyz.janboerman.guilib.GuiLibrary;
 import xyz.janboerman.guilib.api.GuiListener;
 
@@ -42,6 +47,17 @@ public class ZvH extends JavaPlugin
   public static EditSession editSession;
   public static World world;
   public static TextDisplay leaderboard;
+
+  public static final String discordLink = "https://discord.gg/PC6dMQxg";
+  public static final PlainTextComponentSerializer plainSerializer = PlainTextComponentSerializer.plainText();
+  private static final TextComponent discordMsgPrefix = Component.text("[Discord]").decorate(TextDecoration.BOLD)
+      .hoverEvent(HoverEvent.showText(Component.text("Sent from Discord"))).color(NamedTextColor.BLUE);
+  public static final TextComponent reminderMsg = Component.text("Remember to read the ")
+      .append(Component.text("guide").decorate(TextDecoration.UNDERLINED).clickEvent(ClickEvent.runCommand("/guide"))
+          .hoverEvent(HoverEvent.showText(Component.text("Click to view"))))
+      .append(Component.text(" and the ")).append(Component.text("rules").decorate(TextDecoration.UNDERLINED)
+          .clickEvent(ClickEvent.runCommand("/rules")).hoverEvent(HoverEvent.showText(Component.text("Click to view"))))
+      .append(Component.text("!"));
 
   public GuiListener getGuiListener()
   {
@@ -65,6 +81,7 @@ public class ZvH extends JavaPlugin
     world = getServer().getWorlds().get(0);
     worldSpawnLocation = world.getSpawnLocation();
     editSession = WorldEdit.getInstance().newEditSession(BukkitAdapter.adapt(world));
+    editSession.disableHistory();
 
     Game.clean();
     Bukkit.getScheduler().runTaskLater(this, () -> {
@@ -73,15 +90,28 @@ public class ZvH extends JavaPlugin
       updateLeaderboard();
     }, 10);
 
+    Moderation.setConfigFile(getDataFolder().toPath().resolve("muted.json").toFile());
     ZClassManager.init(getDataFolder().toPath().resolve("classes"), getLogger());
-    ZClassManager.registerZClass("Zombie", Material.ZOMBIE_HEAD, 0, null);
-    ZClassManager.registerZClass("Skeleton", Material.SKELETON_SKULL, 5, new PotionEffect[]
-    { new PotionEffect(PotionEffectType.WEAKNESS, -1, 0) });
-    ZClassManager.registerZClass("Blaze", Material.BLAZE_POWDER, 10, null);
-    ZClassManager.registerZClass("Witch", Material.POTION, 10, null);
-    ZClassManager.registerZClass("Spider", Material.STRING, 10, null);
-    ZClassManager.registerZClass("Slime", Material.SLIME_BALL, 5, new PotionEffect[]
-    { new PotionEffect(PotionEffectType.JUMP, -1, 2) });
+    DiscordBot.start(getDataFolder().toPath().resolve(".env"));
+    DiscordBot.setMessageHandler((author, message) -> {
+      for (var p : Bukkit.getOnlinePlayers())
+      {
+        p.sendMessage(Component.empty().append(discordMsgPrefix).append(Component.text(" <" + author + "> "))
+            .append(Component.text(message)));
+      }
+    });
+
+    ZClassManager.registerZClass("Zombie", Material.ZOMBIE_HEAD, 0);
+    ZClassManager.registerZClass("Skeleton", Material.SKELETON_SKULL, 5,
+        new PotionEffect(PotionEffectType.WEAKNESS, -1, 0));
+    ZClassManager.registerZClass("Blaze", Material.BLAZE_POWDER, 20);
+    ZClassManager.registerZClass("Witch", Material.POTION, 10);
+    ZClassManager.registerZClass("Spider", Material.STRING, 10);
+    ZClassManager.registerZClass("Slime", Material.SLIME_BALL, 5,
+        new PotionEffect(PotionEffectType.JUMP, -1, 2, false, false, false));
+    ZClassManager.registerZClass("Baby_Zombie", Material.CARROT, 4,
+        new PotionEffect(PotionEffectType.SPEED, -1, 0, false, false, false),
+        new PotionEffect(PotionEffectType.FAST_DIGGING, -1, 0));
 
     GuiLibrary guiLibrary = (GuiLibrary) getServer().getPluginManager().getPlugin("GuiLib");
     guiListener = guiLibrary.getGuiListener();
@@ -89,12 +119,24 @@ public class ZvH extends JavaPlugin
     var csm = new ClassSelectionMenu(this);
     getCommand("zvh").setExecutor(new ZvHCommands());
     getCommand("music").setExecutor(new MusicCommands());
-    var pm = getServer().getPluginManager();
+    final var pm = getServer().getPluginManager();
     pm.registerEvents(new JoinLeaveListener(), this);
     pm.registerEvents(new MiscListener(), this);
+    pm.registerEvents(new GuardListener(), this);
     pm.registerEvents(csm, this);
+    pm.registerEvents(new Moderation(), this);
 
-    saveDefaultConfig();
+    Bukkit.getScheduler().runTaskTimer(this, () -> {
+      Util.sendServerMsg(reminderMsg);
+    }, 0, 20 * 60 * 10);
+  }
+
+  @Override
+  public void onDisable()
+  {
+    if (Game.isActive())
+      Game.stop();
+    DiscordBot.stop();
   }
 
   @Override
@@ -106,11 +148,27 @@ public class ZvH extends JavaPlugin
       switch (command.getLabel())
       {
       case "leave":
+        if (args.length == 1 && player.isOp())
+        {
+          player = Bukkit.getPlayerExact(args[0]);
+          if (player == null)
+            return false;
+        }
         Game.leave(player);
         return true;
 
       case "resetmap":
         MapControl.chooseMap(1);
+        if (args.length == 1)
+        {
+          try
+          {
+            MapControl.setFeature(Integer.parseInt(args[0]));
+          } catch (NumberFormatException e)
+          {
+            return false;
+          }
+        }
         MapControl.resetMap();
         return true;
 
@@ -127,6 +185,12 @@ public class ZvH extends JavaPlugin
         return true;
 
       case "class":
+        if (args.length == 1)
+        {
+          player = Bukkit.getPlayerExact(args[0]);
+          if (player == null)
+            return false;
+        }
         ClassSelectionMenu.showTo(player);
         return true;
 
@@ -135,7 +199,65 @@ public class ZvH extends JavaPlugin
         return true;
 
       case "join":
+        if (args.length == 1 && player.isOp())
+        {
+          player = Bukkit.getPlayerExact(args[0]);
+          if (player == null)
+            return false;
+        }
         Game.play(player);
+        return true;
+
+      case "guide":
+        GuideBook.showTo(player);
+        return true;
+
+      case "mute":
+      {
+        if (args.length != 1)
+          return false;
+        var p = Bukkit.getPlayerExact(args[0]);
+        if (p == null)
+          return false;
+        Moderation.mute(p);
+        return true;
+      }
+
+      case "unmute":
+      {
+        if (args.length != 1)
+          return false;
+        var p = Bukkit.getPlayerExact(args[0]);
+        if (p == null)
+          return false;
+        Moderation.unmute(p);
+        return true;
+      }
+
+      case "mutelist":
+        var players = Moderation.getMuted();
+        if (players.length == 0)
+        {
+          player.sendMessage("*Empty*");
+          return true;
+        }
+        var names = new StringBuilder();
+        for (int i = 0; i < players.length; i++)
+        {
+          names.append(players[i].getName());
+          if (i != players.length - 1)
+            names.append(", ");
+        }
+        player.sendMessage(names.toString());
+        return true;
+
+      case "rules":
+        player.sendMessage(
+            "Rules:\n\n- Be respectful and kind\n- No NSFW content\n- Stay on-topic\n- Don't ask for roles or coins");
+        return true;
+
+      case "discord":
+        player.sendMessage(Component.text("Click to open").clickEvent(ClickEvent.openUrl(discordLink)));
         return true;
 
       default:
@@ -143,6 +265,11 @@ public class ZvH extends JavaPlugin
       }
     }
     return super.onCommand(sender, command, label, args);
+  }
+
+  public static void changeCoins(Player player, int amount)
+  {
+    changeCoins(player, amount, null);
   }
 
   public static void changeCoins(Player player, int amount, String reason)
@@ -155,6 +282,22 @@ public class ZvH extends JavaPlugin
         Component.text(reason == null ? "%+d coins".formatted(amount) : "%+d coins (%s)".formatted(amount, reason))
             .style(Style.style(NamedTextColor.GOLD)));
     Game.updateBoard(player);
+  }
+
+  public static void changeExp(Player player, int amount)
+  {
+    var s = ZvH.xp.getScore(player);
+    var ns = s.getScore() + amount;
+    s.setScore(ns);
+    var lvl = ZvH.lvl.getScore(player);
+    player.setExp(0);
+    player.setLevel(0);
+    player.giveExp(ns, false);
+    if (lvl.getScore() != player.getLevel())
+    {
+      lvl.setScore(player.getLevel());
+      ZvH.updateLeaderboard();
+    }
   }
 
   public static void updateLeaderboard()
@@ -185,5 +328,10 @@ public class ZvH extends JavaPlugin
     }
 
     leaderboard.text(txt);
+  }
+
+  public static int getPlayerCount()
+  {
+    return Bukkit.getOnlinePlayers().size();
   }
 }

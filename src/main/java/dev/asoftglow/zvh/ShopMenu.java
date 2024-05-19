@@ -21,11 +21,12 @@ public abstract class ShopMenu
       new ShopItem(new ItemBuilder(Material.GUNPOWDER).name("Explosive Powder").lore("Right click to throw").build(),
           10),
       new ShopItem(new ItemStack(Material.SHEARS), 15), new ShopItem(new ItemStack(Material.STONE_SHOVEL), 15),
-      new ShopItem(new ItemStack(Material.LIGHT_GRAY_WOOL, 5), 5), new ShopItem(tracker, 20) },
+      new ShopItem(new ItemStack(Material.LIGHT_GRAY_WOOL, 5), 5), new ShopItem(tracker, 10) },
       human_items = new ShopItem[]
-      { new ShopItem(new ItemStack(Material.ARROW, 5), 5), new ShopItem(new ItemStack(Material.SHEARS), 30),
+      { new ShopItem(new ItemStack(Material.ARROW, 3), 7), new ShopItem(new ItemStack(Material.SHEARS), 15),
           new ShopItem(new ItemStack(Material.GOLDEN_APPLE), 40),
-          new ShopItem(new ItemStack(Material.LIGHT_GRAY_WOOL, 5), 5) };
+          new ShopItem(new ItemStack(Material.LIGHT_GRAY_WOOL, 5), 5),
+          new ShopItem(new ItemBuilder(Material.SHIELD).damage(296).build(), 15) };
 
   private final static MenuHolder<ZvH> zombies_menu, humans_menu;
 
