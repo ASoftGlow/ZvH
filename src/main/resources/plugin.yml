@@ -38,3 +38,5 @@ commands:
     permission: admin.manage.serverpermission
   rules:
   discord:
+  vanish:
+    permission: admin.manage.serverpermission

@@ -35,8 +35,10 @@ import com.sk89q.worldedit.function.operation.ForwardExtentCopy;
 import com.sk89q.worldedit.function.operation.Operations;
 import com.sk89q.worldedit.function.pattern.Pattern;
 import com.sk89q.worldedit.math.BlockVector3;
+import com.sk89q.worldedit.math.Vector2;
 import com.sk89q.worldedit.math.transform.AffineTransform;
 import com.sk89q.worldedit.regions.CuboidRegion;
+import com.sk89q.worldedit.regions.CylinderRegion;
 import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldedit.session.ClipboardHolder;
 import com.sk89q.worldedit.world.block.BaseBlock;
@@ -79,48 +81,19 @@ public abstract class MapControl
   {
   }
 
-  static final class MapBounds
+  static final class MapBounds extends CuboidRegion
   {
     public final int x1, x2, z1, z2, y, h;
 
     public MapBounds(int x1, int z1, int x2, int z2, int y, int h)
     {
+      super(BlockVector3.at(x1, y, z1), BlockVector3.at(x2, y + h, z2));
       this.x1 = x1;
       this.x2 = x2;
       this.z1 = z1;
       this.z2 = z2;
       this.y = y;
       this.h = h;
-    }
-
-    public int getXLength()
-    {
-      return Math.abs(x2 - x1);
-    }
-
-    public int getZLength()
-    {
-      return Math.abs(z2 - z1);
-    }
-
-    public int getXMiddle()
-    {
-      return getXLength() / 2 + x1;
-    }
-
-    public int getZMiddle()
-    {
-      return getZLength() / 2 + z1;
-    }
-
-    public BlockVector3 getFirstBV()
-    {
-      return BlockVector3.at(x1, y, z1);
-    }
-
-    public BlockVector3 getSecondBV()
-    {
-      return BlockVector3.at(x2, y, z2);
     }
   }
 
@@ -271,7 +244,7 @@ public abstract class MapControl
         while (c-- != 0)
         {
           var height = b.y + ThreadLocalRandom.current().nextInt(6, b.h - 1 - bsize);
-          var slide = ThreadLocalRandom.current().nextInt(b.getXLength() / 2 - bsize) + 1;
+          var slide = ThreadLocalRandom.current().nextInt(b.getWidth() / 2 - bsize) + 1;
 
           ZvH.editSession.setBlocks((Region) new CuboidRegion(BlockVector3.at(b.x2 - slide, height, b.z2 - 1),
               BlockVector3.at(b.x2 - slide - bsize, height + bsize, b.z1 + 1)), bars_p);
@@ -287,8 +260,8 @@ public abstract class MapControl
         while (c1-- != 0)
         {
           var height = ThreadLocalRandom.current().nextInt(4, b.h - 8);
-          var x_slide = ThreadLocalRandom.current().nextInt(b.getXLength() / 2 - psize);
-          var z_slide = ThreadLocalRandom.current().nextInt(b.getZLength() - psize - 1);
+          var x_slide = ThreadLocalRandom.current().nextInt(b.getWidth() / 2 - psize);
+          var z_slide = ThreadLocalRandom.current().nextInt(b.getLength() - psize - 1);
 
           ZvH.editSession
               .setBlocks(
@@ -301,6 +274,16 @@ public abstract class MapControl
                       BlockVector3.at(b.x1 + x_slide + psize + 1, b.y + height, b.z1 + z_slide + psize + 1)),
                   pillars_p);
         }
+
+        final var zombie_center = BlockVector3.at(current_size.zombieSpawn.getBlockX(),
+            current_size.zombieSpawn.getBlockY(), current_size.zombieSpawn.getBlockZ());
+        ZvH.editSession.setBlocks((Region) new CylinderRegion(zombie_center, Vector2.at(3, 3), b.y + 1, b.y + 4),
+            BukkitAdapter.asBlockType(Material.AIR));
+
+        final var human_center = BlockVector3.at(current_size.humanSpawn.getBlockX(),
+            current_size.humanSpawn.getBlockY(), current_size.humanSpawn.getBlockZ());
+        ZvH.editSession.setBlocks((Region) new CylinderRegion(human_center, Vector2.at(3, 3), b.y + 1, b.y + 4),
+            BukkitAdapter.asBlockType(Material.AIR));
         break;
 
       case "Fortress":
@@ -309,8 +292,8 @@ public abstract class MapControl
         {
           Clipboard clipboard = reader.read();
           clipboard.replaceBlocks(clipboard.getRegion(), red_filter, fortress_p);
-          clipboard.paste(ZvH.editSession, BlockVector3.at(b.getXMiddle() + 2, b.y + 1, b.getZMiddle()), false, false,
-              false);
+          clipboard.paste(ZvH.editSession,
+              BlockVector3.at(b.getCenter().getBlockX() + 2, b.y + 1, b.getCenter().getBlockZ()), false, false, false);
           // Operations.complete(clipboard.commit());
           clipboard.close();
         } catch (IOException e)
@@ -344,7 +327,7 @@ public abstract class MapControl
           seg_reg.shift(origin);
 
           var copy = new ForwardExtentCopy(ZvH.editSession, seg_reg, ZvH.editSession, seg_reg.getMinimumPoint());
-          copy.setRepetitions((b.getZLength() - 36) / 6);
+          copy.setRepetitions((b.getLength() - 36) / 6);
           copy.setTransform(
               new AffineTransform().translate(BlockVector3.UNIT_MINUS_Z.multiply(seg_reg.getDimensions())));
           Operations.complete(copy);

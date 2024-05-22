@@ -50,7 +50,10 @@ public class JoinLeaveListener implements Listener
   {
     var player = e.getPlayer();
     Game.removeBoard(player);
-    Game.leave(player);
+    if (Game.isPlaying(player))
+      Game.leave(player, true);
+    else
+      Game.leaveWaiters(player);
     Music.stop(player);
 
     e.quitMessage(Component.text("Goodbye, %s...".formatted(player.getName())));

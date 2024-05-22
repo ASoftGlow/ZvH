@@ -46,9 +46,14 @@ public class ZvH extends JavaPlugin
   public static ZvH singleton;
   public static EditSession editSession;
   public static World world;
-  public static TextDisplay leaderboard;
+  public static TextDisplay lvlLeaderboard, coinLeaderboard;
+  public static final boolean isDev = false;
+  /**
+   * Not thread safe!
+   */
+  public static String CMD = null;
 
-  public static final String discordLink = "https://discord.gg/PC6dMQxg";
+  public static final String discordLink = "https://discord.gg/mzj4EvBbhM";
   public static final PlainTextComponentSerializer plainSerializer = PlainTextComponentSerializer.plainText();
   private static final TextComponent discordMsgPrefix = Component.text("[Discord]").decorate(TextDecoration.BOLD)
       .hoverEvent(HoverEvent.showText(Component.text("Sent from Discord"))).color(NamedTextColor.BLUE);
@@ -68,6 +73,9 @@ public class ZvH extends JavaPlugin
   public void onEnable()
   {
     singleton = this;
+    if (isDev)
+      getLogger().info("\n\ndev mode enabled\n");
+
     var ms = Bukkit.getScoreboardManager().getMainScoreboard();
     zombiesTeam = ms.getTeam("zombies");
     humansTeam = ms.getTeam("humans");
@@ -86,13 +94,15 @@ public class ZvH extends JavaPlugin
     Game.clean();
     Bukkit.getScheduler().runTaskLater(this, () -> {
       // hope the server is fully loaded by now
-      leaderboard = Util.findEntity("Leaderboard", TextDisplay.class, world);
-      updateLeaderboard();
+      lvlLeaderboard = Util.findEntity("LevelLeaderboard", TextDisplay.class, world);
+      coinLeaderboard = Util.findEntity("CoinLeaderboard", TextDisplay.class, world);
+      updateLeaderboards();
     }, 10);
 
     Moderation.setConfigFile(getDataFolder().toPath().resolve("muted.json").toFile());
     ZClassManager.init(getDataFolder().toPath().resolve("classes"), getLogger());
-    DiscordBot.start(getDataFolder().toPath().resolve(".env"));
+    if (!isDev)
+      DiscordBot.start(getDataFolder().toPath().resolve(".env"));
     DiscordBot.setMessageHandler((author, message) -> {
       for (var p : Bukkit.getOnlinePlayers())
       {
@@ -102,16 +112,16 @@ public class ZvH extends JavaPlugin
     });
 
     ZClassManager.registerZClass("Zombie", Material.ZOMBIE_HEAD, 0);
-    ZClassManager.registerZClass("Skeleton", Material.SKELETON_SKULL, 5,
-        new PotionEffect(PotionEffectType.WEAKNESS, -1, 0));
-    ZClassManager.registerZClass("Blaze", Material.BLAZE_POWDER, 20);
-    ZClassManager.registerZClass("Witch", Material.POTION, 10);
-    ZClassManager.registerZClass("Spider", Material.STRING, 10);
-    ZClassManager.registerZClass("Slime", Material.SLIME_BALL, 5,
-        new PotionEffect(PotionEffectType.JUMP, -1, 2, false, false, false));
     ZClassManager.registerZClass("Baby_Zombie", Material.CARROT, 4,
         new PotionEffect(PotionEffectType.SPEED, -1, 0, false, false, false),
         new PotionEffect(PotionEffectType.FAST_DIGGING, -1, 0));
+    ZClassManager.registerZClass("Skeleton", Material.SKELETON_SKULL, 5,
+        new PotionEffect(PotionEffectType.WEAKNESS, -1, 0));
+    ZClassManager.registerZClass("Slime", Material.SLIME_BALL, 5,
+        new PotionEffect(PotionEffectType.JUMP, -1, 2, false, false, false));
+    ZClassManager.registerZClass("Witch", Material.POTION, 10);
+    ZClassManager.registerZClass("Spider", Material.STRING, 10);
+    ZClassManager.registerZClass("Blaze", Material.BLAZE_POWDER, 15);
 
     GuiLibrary guiLibrary = (GuiLibrary) getServer().getPluginManager().getPlugin("GuiLib");
     guiListener = guiLibrary.getGuiListener();
@@ -128,13 +138,20 @@ public class ZvH extends JavaPlugin
 
     Bukkit.getScheduler().runTaskTimer(this, () -> {
       Util.sendServerMsg(reminderMsg);
-    }, 0, 20 * 60 * 10);
+    }, 40, 20 * 60 * 10);
+    Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
+      if (CMD != null)
+      {
+        getServer().dispatchCommand(getServer().getConsoleSender(), CMD);
+        CMD = null;
+      }
+    }, 40, 1);
   }
 
   @Override
   public void onDisable()
   {
-    if (Game.isActive())
+    if (Game.getState() != Game.State.STOPPED)
       Game.stop();
     DiscordBot.stop();
   }
@@ -142,125 +159,131 @@ public class ZvH extends JavaPlugin
   @Override
   public boolean onCommand(CommandSender sender, Command command, String label, String[] args)
   {
-    if (sender instanceof Player)
+    switch (command.getLabel())
     {
-      var player = (Player) sender;
-      switch (command.getLabel())
+    case "resetmap":
+      MapControl.chooseMap(1);
+      if (args.length == 1)
       {
-      case "leave":
-        if (args.length == 1 && player.isOp())
+        try
         {
-          player = Bukkit.getPlayerExact(args[0]);
-          if (player == null)
-            return false;
+          MapControl.setFeature(Integer.parseInt(args[0]));
+        } catch (NumberFormatException e)
+        {
+          return false;
         }
-        Game.leave(player);
-        return true;
+      }
+      MapControl.resetMap();
+      return true;
 
-      case "resetmap":
-        MapControl.chooseMap(1);
-        if (args.length == 1)
+    case "mute":
+    {
+      if (args.length != 1)
+        return false;
+      var p = Bukkit.getPlayerExact(args[0]);
+      if (p == null)
+        return false;
+      Moderation.mute(p);
+      return true;
+    }
+
+    case "unmute":
+    {
+      if (args.length != 1)
+        return false;
+      var p = Bukkit.getPlayerExact(args[0]);
+      if (p == null)
+        return false;
+      Moderation.unmute(p);
+      return true;
+    }
+
+    case "mutelist":
+      var players = Moderation.getMuted();
+      if (players.length == 0)
+      {
+        
+        sender.sendMessage("*Empty*");
+        return true;
+      }
+      var names = new StringBuilder();
+      for (int i = 0; i < players.length; i++)
+      {
+        names.append(players[i].getName());
+        if (i != players.length - 1)
+          names.append(", ");
+      }
+      sender.sendMessage(names.toString());
+      return true;
+
+    default:
+      if (sender instanceof Player)
+      {
+        var player = (Player) sender;
+        switch (command.getLabel())
         {
-          try
+        case "leave":
+          if (args.length == 1 && player.isOp())
           {
-            MapControl.setFeature(Integer.parseInt(args[0]));
-          } catch (NumberFormatException e)
-          {
-            return false;
+            player = Bukkit.getPlayerExact(args[0]);
+            if (player == null)
+              return false;
           }
-        }
-        MapControl.resetMap();
-        return true;
-
-      case "afk":
-        QOL.afkToggle(player);
-        return true;
-
-      case "shop":
-        ShopMenu.handleCommand(player);
-        return true;
-
-      case "die":
-        player.setHealth(0d);
-        return true;
-
-      case "class":
-        if (args.length == 1)
-        {
-          player = Bukkit.getPlayerExact(args[0]);
-          if (player == null)
-            return false;
-        }
-        ClassSelectionMenu.showTo(player);
-        return true;
-
-      case "modifier":
-        MapModifierMenu.showTo(player);
-        return true;
-
-      case "join":
-        if (args.length == 1 && player.isOp())
-        {
-          player = Bukkit.getPlayerExact(args[0]);
-          if (player == null)
-            return false;
-        }
-        Game.play(player);
-        return true;
-
-      case "guide":
-        GuideBook.showTo(player);
-        return true;
-
-      case "mute":
-      {
-        if (args.length != 1)
-          return false;
-        var p = Bukkit.getPlayerExact(args[0]);
-        if (p == null)
-          return false;
-        Moderation.mute(p);
-        return true;
-      }
-
-      case "unmute":
-      {
-        if (args.length != 1)
-          return false;
-        var p = Bukkit.getPlayerExact(args[0]);
-        if (p == null)
-          return false;
-        Moderation.unmute(p);
-        return true;
-      }
-
-      case "mutelist":
-        var players = Moderation.getMuted();
-        if (players.length == 0)
-        {
-          player.sendMessage("*Empty*");
+          Game.leave(player);
           return true;
+
+        case "shop":
+          ShopMenu.handleCommand(player);
+          return true;
+
+        case "die":
+          player.setHealth(0d);
+          return true;
+
+        case "class":
+          if (args.length == 1)
+          {
+            player = Bukkit.getPlayerExact(args[0]);
+            if (player == null)
+              return false;
+          }
+          ClassSelectionMenu.showTo(player);
+          return true;
+
+        case "modifier":
+          MapModifierMenu.showTo(player);
+          return true;
+
+        case "join":
+          if (args.length == 1 && player.isOp())
+          {
+            player = Bukkit.getPlayerExact(args[0]);
+            if (player == null)
+              return false;
+          }
+          Game.play(player);
+          return true;
+
+        case "guide":
+          GuideBook.showTo(player);
+          return true;
+
+        case "rules":
+          player.sendMessage(
+              "Rules:\n\n- Be respectful and kind\n- No NSFW content\n- Stay on-topic\n- Don't ask for roles or coins");
+          return true;
+
+        case "discord":
+          player.sendMessage(Component.text("Click to open").clickEvent(ClickEvent.openUrl(discordLink)));
+          return true;
+
+        case "vanish":
+          player.sendMessage("Whoosh!");
+          return true;
+
+        default:
+          break;
         }
-        var names = new StringBuilder();
-        for (int i = 0; i < players.length; i++)
-        {
-          names.append(players[i].getName());
-          if (i != players.length - 1)
-            names.append(", ");
-        }
-        player.sendMessage(names.toString());
-        return true;
-
-      case "rules":
-        player.sendMessage(
-            "Rules:\n\n- Be respectful and kind\n- No NSFW content\n- Stay on-topic\n- Don't ask for roles or coins");
-        return true;
-
-      case "discord":
-        player.sendMessage(Component.text("Click to open").clickEvent(ClickEvent.openUrl(discordLink)));
-        return true;
-
-      default:
         break;
       }
     }
@@ -296,17 +319,22 @@ public class ZvH extends JavaPlugin
     if (lvl.getScore() != player.getLevel())
     {
       lvl.setScore(player.getLevel());
-      ZvH.updateLeaderboard();
     }
   }
 
-  public static void updateLeaderboard()
+  public static void updateLeaderboards()
+  {
+    updateLeaderboard(lvl, lvlLeaderboard);
+    updateLeaderboard(coins, coinLeaderboard);
+  }
+
+  private static void updateLeaderboard(Objective objective, TextDisplay textDisplay)
   {
     // get scores
     var scores = new ArrayList<Score>();
     for (var entry : Bukkit.getScoreboardManager().getMainScoreboard().getEntries())
     {
-      var score = lvl.getScore(entry);
+      var score = objective.getScore(entry);
       if (score.isScoreSet())
       {
         scores.add(score);
@@ -327,7 +355,7 @@ public class ZvH extends JavaPlugin
       txt = txt.append(Component.text("%-3d %s".formatted(scores.get(i).getScore(), scores.get(i).getEntry())));
     }
 
-    leaderboard.text(txt);
+    textDisplay.text(txt);
   }
 
   public static int getPlayerCount()

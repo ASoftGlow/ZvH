@@ -10,6 +10,7 @@ import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -60,13 +61,13 @@ public class Moderation implements Listener
   }
 
   @SuppressWarnings("unchecked")
-  public static void mute(Player player)
+  public static void mute(OfflinePlayer player)
   {
     config.add(player.getUniqueId().toString());
     saveConfig();
   }
 
-  public static void unmute(Player player)
+  public static void unmute(OfflinePlayer player)
   {
     for (var o : config)
     {
@@ -79,12 +80,12 @@ public class Moderation implements Listener
     }
   }
 
-  public static Player[] getMuted()
+  public static OfflinePlayer[] getMuted()
   {
-    var players = new Player[config.size()];
+    var players = new OfflinePlayer[config.size()];
     for (int i = 0; i < players.length; i++)
     {
-      players[i] = Bukkit.getPlayer(UUID.fromString((String) config.get(i)));
+      players[i] = Bukkit.getOfflinePlayer(UUID.fromString((String) config.get(i)));
     }
     return players;
   }

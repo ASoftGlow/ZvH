@@ -30,7 +30,7 @@ public abstract class MapModifierMenu
 
   private final static SelectButton<ZvH> closeBtn = new SelectButton<ZvH>(
       (new ItemBuilder(Material.BARRIER)).flags(ItemFlag.HIDE_ENCHANTS).name("§r§5Leave").build(), e -> {
-        e.getWhoClicked().addScoreboardTag("clicked");
+        //e.getWhoClicked().addScoreboardTag("can_close"); FIXME
         Game.leave((Player) e.getWhoClicked());
         return true;
       });

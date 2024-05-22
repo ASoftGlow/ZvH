@@ -3,8 +3,7 @@ package dev.asoftglow.zvh;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.LinkedHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -15,7 +14,7 @@ import org.bukkit.potion.PotionEffect;
 
 public class ZClassManager
 {
-  public static final SortedMap<String, ZClass> zClasses = new TreeMap<>();
+  public static final LinkedHashMap<String, ZClass> zClasses = new LinkedHashMap<>();
   private static Path classesConfigDirectory;
   private static Logger logger;
 

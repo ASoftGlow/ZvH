@@ -20,7 +20,7 @@ public abstract class GuideBook
       Component.empty().append(Component.text("Zombies v.s. Humans\n", Style.style(TextDecoration.BOLD)))
           .append(title("Intro"))
           .append(Component.text("As a human, stay alive. As a zombie, infect the humans. Simple as that.\nThis minigame is based off of a the now-extinct minigame on the now extict `Full` server that bore the same name.\nCheck out ")
-          .append(cmd("rules")).append(Component.text("& join the "))
+          .append(cmd("rules")).append(Component.text(" & join the "))
           .append(Component.text("Discord").decorate(TextDecoration.UNDERLINED).clickEvent(ClickEvent.openUrl(ZvH.discordLink)))),
       Component.empty().append(title("Commands"))
           .append(subtitle("Global"))
@@ -36,7 +36,7 @@ public abstract class GuideBook
           .append(Component.text("You can earn coins as a zombie or human various ways. Spend them in the ")
           .append(cmd("shop")).append(Component.text(", or on classes as a zombie")))
           .appendNewline()
-          .append(row("Zombie kill", Rewards.COIN_HUMAN_KILL))
+          .append(row("Zombie kill", Rewards.COIN_ZOMBIE_KILL))
           .append(row("Human kill", Rewards.COIN_HUMAN_KILL))
           .append(row("Human assist kill", Rewards.COIN_HUMAN_ASSIST))
           .append(row("Zombie win", Rewards.COIN_ZOMBIE_WIN))

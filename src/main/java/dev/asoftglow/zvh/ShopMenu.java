@@ -26,6 +26,9 @@ public abstract class ShopMenu
       { new ShopItem(new ItemStack(Material.ARROW, 3), 7), new ShopItem(new ItemStack(Material.SHEARS), 15),
           new ShopItem(new ItemStack(Material.GOLDEN_APPLE), 40),
           new ShopItem(new ItemStack(Material.LIGHT_GRAY_WOOL, 5), 5),
+          new ShopItem(new ItemBuilder(Material.RED_WOOL).name("Unbreakable Wool")
+              .lore("Cannot be broken by explosions").amount(3).build(), 30),
+          new ShopItem(new ItemStack(Material.GLASS, 5), 15),
           new ShopItem(new ItemBuilder(Material.SHIELD).damage(296).build(), 15) };
 
   private final static MenuHolder<ZvH> zombies_menu, humans_menu;

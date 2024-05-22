@@ -19,6 +19,8 @@ public class ZvHCommands implements CommandExecutor, TabCompleter
   {
     if (args.length == 0 || !(sender instanceof Player))
       return false;
+    if (!(sender instanceof Player))
+      return false;
     final var player = (Player) sender;
     switch (args[0])
     {

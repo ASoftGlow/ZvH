@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
+import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -13,6 +14,7 @@ import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -23,6 +25,7 @@ import dev.asoftglow.zvh.util.Util;
 import fr.mrmicky.fastboard.adventure.FastBoard;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -31,7 +34,7 @@ import xyz.janboerman.guilib.api.ItemBuilder;
 
 public abstract class Game
 {
-  private static final int REQUIRED_PLAYERS = 2;
+  private static final int REQUIRED_PLAYERS = ZvH.isDev ? 1 : 2;
   private static final int SURIVAL_TIME = 60 * 5;
   private static HashMap<Player, FastBoard> boards = new HashMap<>();
   private static final Style zombie_style = Style.style(NamedTextColor.DARK_GREEN, TextDecoration.BOLD);
@@ -50,13 +53,18 @@ public abstract class Game
 
   private static Set<Player> last_zombies = new HashSet<>();
   public static Set<Player> playing = new HashSet<>();
-  public static HashMap<Player, ZClass> zombie_class = new HashMap<>();
-  private static boolean active = false;
+  private static Game.State state = Game.State.STOPPED;
   private static int game_time;
+  private static Set<UUID> temp_blocked = new HashSet<>();
 
-  public static boolean isActive()
+  public enum State
   {
-    return active;
+    STOPPED, PLAYING, ENDING
+  };
+
+  public static Game.State getState()
+  {
+    return Game.state;
   }
 
   public static void clean()
@@ -140,9 +148,9 @@ public abstract class Game
     player.getInventory().setItem(8, spec_leave_item);
     player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, -1, 2, false, false, false));
     player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, -1, 255, false, false, false));
-    player.teleport(new Location(player.getWorld(), MapControl.current_size.bounds().getXMiddle(),
+    player.teleport(new Location(player.getWorld(), MapControl.current_size.bounds().getCenter().getBlockX(),
         MapControl.current_size.bounds().y + MapControl.current_size.bounds().h + 1,
-        MapControl.current_size.bounds().getZMiddle(), 0f, 90f));
+        MapControl.current_size.bounds().getCenter().getBlockZ(), 0f, 90f));
   }
 
   public static void leaveSpectators(Player player)
@@ -155,8 +163,17 @@ public abstract class Game
 
   private static void join(Player player)
   {
+    if (temp_blocked.contains(player.getUniqueId()))
+    {
+      player.sendMessage(Component
+          .text("You left as the first and only zombie, which forces another zombie to be chosen. To prevent abuse, ")
+          .color(NamedTextColor.RED)
+          .append(Component.text("you must wait until next game to play again").decorate(TextDecoration.UNDERLINED))
+          .append(Component.text(".")));
+      Util.playSound(player, Sound.BLOCK_REDSTONE_TORCH_BURNOUT, 1, 0.8f);
+      return;
+    }
     playing.add(player);
-    player.getScoreboardTags().add("playing");
     player.setGameMode(GameMode.SURVIVAL);
     player.setHealth(20d);
     player.getInventory().clear();
@@ -180,11 +197,12 @@ public abstract class Game
     Util.playSound(player, Sound.ENTITY_ZOMBIE_AMBIENT, 1f, 0.8f);
   }
 
-  public static void joinHumans(Player player)
+  public static void joinHumans(Player player, boolean revived)
   {
     ZvH.humansTeam.addPlayer(player);
     join(player);
-    player.getInventory().addItem(new ItemStack(Material.STONE_SWORD));
+    player.getInventory()
+        .addItem(new ItemStack(player.getName().equals("AthenaViolet") ? Material.IRON_SWORD : Material.STONE_SWORD));
     player.getInventory().addItem(new ItemStack(Material.BOW));
     // y=\max\left(\operatorname{floor}\left(\frac{80}{\operatorname{floor}\left(x\right)+9}\right),2\right)
     player.getInventory().addItem(new ItemStack(Material.ARROW, Math.max(2, 80 / (playing.size() + 9))));
@@ -192,10 +210,23 @@ public abstract class Game
     player.getInventory().setLeggings(new ItemStack(Material.CHAINMAIL_LEGGINGS));
     player.getInventory().setBoots(new ItemStack(Material.CHAINMAIL_BOOTS));
 
+    if (revived)
+      return;
     player.teleport(
         MapControl.getLocation(player, MapControl.mapSizes[0].humanSpawn(), MapControl.mapSizes[0].zombieSpawn()));
     player.showTitle(human_spawn_title);
     Util.playSound(player, Sound.ENTITY_VILLAGER_AMBIENT, 1f, 0.8f);
+  }
+
+  public static void reviveHuman(Player player)
+  {
+    Util.playSoundAllAt(player, Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 0.9f, 1.2f);
+    Util.sendServerMsg(Component.text(player.getName()).decorate(TextDecoration.BOLD)
+        .append(Component.text(" has been become human again!").color(NamedTextColor.GRAY))
+        .hoverEvent(HoverEvent.showText(Component.text("Infect 3 humans as a zombie"))));
+
+    joinHumans(player, true);
+    player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 3, 2));
   }
 
   public static void leaveHumans(Player player)
@@ -211,9 +242,12 @@ public abstract class Game
 
   public static void leave(Player player)
   {
-    player.getScoreboardTags().remove("playing");
+    leave(player, false);
+  }
+
+  public static void leave(Player player, boolean isQuiting)
+  {
     player.clearTitle();
-    ZvH.zombiesTeam.removePlayer(player);
     player.clearActivePotionEffects();
     player.setFireTicks(0);
     player.setGameMode(GameMode.ADVENTURE);
@@ -222,27 +256,50 @@ public abstract class Game
     player.closeInventory();
     player.setFallDistance(0);
 
-    if (active && playing.remove(player))
+    if (state == Game.State.PLAYING && playing.remove(player))
     {
-      if (ZvH.humansTeam.removePlayer(player))
+      if (playing.size() == 0)
       {
-
-      } else if (playing.size() == 0)
-      {
+        ZvH.humansTeam.removePlayer(player);
+        ZvH.zombiesTeam.removePlayer(player);
         stop();
-      } else if (playing.size() > 1 && getZombiesCount() == 0)
+      } else if (ZvH.humansTeam.removePlayer(player))
       {
-        // choose new zombies
-        for (var p : pickZombies(playing))
+        if (Game.getHumansCount() == 0)
         {
-          p.getInventory().clear();
-          p.setItemOnCursor(null);
-          leaveHumans(p);
-          Util.playSound(p, Sound.ENTITY_ZOMBIE_AMBIENT, 50f, 0.8f);
+          Game.rewardZombies();
+          Game.stop();
+          Game.announceZombiesWin();
+        }
+      } else if (ZvH.zombiesTeam.removePlayer(player))
+      {
+        if (getZombiesCount() == 0)
+        {
+          // one human
+          if (playing.size() == 1)
+          {
+            stop();
+          } else
+          {
+            if (last_zombies.size() == 1 && last_zombies.iterator().next() == player)
+              temp_blocked.add(player.getUniqueId());
+            // choose new zombies
+            for (var p : pickZombies(playing))
+            {
+              p.getInventory().clear();
+              p.setItemOnCursor(null);
+              leaveHumans(p);
+              Util.playSound(p, Sound.ENTITY_ZOMBIE_AMBIENT, 50f, 0.8f);
+            }
+          }
         }
       }
     } else
+    {
+      ZvH.zombiesTeam.removePlayer(player);
       ZvH.humansTeam.removePlayer(player);
+    }
+
     leaveWaiters(player);
     player.getInventory().clear();
     player.setItemOnCursor(null);
@@ -261,8 +318,9 @@ public abstract class Game
   {
     MapControl.chooseMap(ZvH.waitersTeam.getEntries().size());
     MapControl.resetMap();
-    active = true;
-    game_time = SURIVAL_TIME;
+    ClassSelectionMenu.reset();
+    temp_blocked.clear();
+    state = Game.State.PLAYING;
     for (var e : ZvH.waitersTeam.getEntries())
     {
       var player = Bukkit.getPlayer(e);
@@ -271,6 +329,7 @@ public abstract class Game
       updateBoard(player);
       playing.add(player);
     }
+    game_time = SURIVAL_TIME;// + Math.min(10, playing.size()) * 15;
 
     for (var player : pickZombies(playing))
     {
@@ -281,7 +340,7 @@ public abstract class Game
     {
       if (!ZvH.zombiesTeam.hasPlayer(player))
       {
-        joinHumans(player);
+        joinHumans(player, false);
       }
     }
 
@@ -303,16 +362,24 @@ public abstract class Game
     Util.sendServerMsg("A game has started.");
   }
 
-  public static void stop()
+  public static void stopGameTasks()
   {
-    active = false;
     while (!game_tasks.empty())
       game_tasks.pop().cancel();
+  }
 
+  public static void stop()
+  {
+    state = Game.State.STOPPED;
+    Bukkit.getServer().getServerTickManager().setTickRate(20);
+    stopGameTasks();
+
+    ClassSelectionMenu.reset();
     for (var p : playing)
       leave(p);
     playing.clear();
     Combat.reset();
+    ZvH.updateLeaderboards();
 
     updateBoards();
     Util.sendServerMsg("This game has ended.");
@@ -330,7 +397,7 @@ public abstract class Game
   {
     var lines = new ArrayList<Component>();
     lines.add(Component.empty());
-    if (!isActive())
+    if (state == Game.State.STOPPED)
     {
       lines.add(Component.text("Waiting... %d/%d".formatted(ZvH.waitersTeam.getEntries().size(), REQUIRED_PLAYERS)));
     } else
@@ -397,10 +464,9 @@ public abstract class Game
   {
     if (--game_time < 0)
     {
-      while (!game_tasks.empty())
-        game_tasks.pop().cancel();
       rewardHumans();
       stop();
+      announceHumansWin();
       return;
     }
     for (var fb : boards.values())
@@ -450,8 +516,13 @@ public abstract class Game
       player.sendMessage("You're already playing, silly!");
       return;
     }
-    if (!isActive())
+    switch (state)
     {
+    case ENDING:
+      player.sendMessage(Component.text("Please wait a moment...").color(NamedTextColor.RED));
+      break;
+
+    case STOPPED:
       if (ZvH.waitersTeam.hasPlayer(player))
       {
         leaveWaiters(player);
@@ -462,19 +533,25 @@ public abstract class Game
         Util.playSound(player, Sound.BLOCK_AMETHYST_BLOCK_HIT, 1, 1);
         player.sendMessage(Component.text("Joined queue").color(NamedTextColor.GREEN));
       }
-    } else
-    {
+      break;
+
+    case PLAYING:
       joinZombies(player);
+      break;
     }
   }
 
-  public static void rewardZombies()
+  public static void announceZombiesWin()
   {
     for (var p : playing)
     {
       p.showTitle(zombies_win_title);
       Util.playSound(p, Sound.ENTITY_ENDER_DRAGON_GROWL, 1f, 1f);
     }
+  }
+
+  public static void rewardZombies()
+  {
     for (var p : getZombies())
     {
       if (last_zombies.contains(p))
@@ -484,22 +561,23 @@ public abstract class Game
     }
   }
 
+  public static void announceHumansWin()
+  {
+    Bukkit.getScheduler().runTask(ZvH.singleton, () -> {
+      for (var p : playing)
+      {
+        p.showTitle(humans_win_title);
+        Util.playSound(p, Sound.BLOCK_BEACON_ACTIVATE, 1f, 1f);
+      }
+    });
+  }
+
   public static void rewardHumans()
   {
-    Util.playSoundAll(Sound.BLOCK_BEACON_ACTIVATE, 1f, 1f);
     for (var p : getHumans())
     {
       ZvH.changeCoins(p, Rewards.COIN_HUMAN_WIN, "won");
     }
-    var previous_playing = Set.copyOf(playing);
-    Bukkit.getScheduler().runTask(ZvH.singleton, () -> {
-      for (var p : previous_playing)
-      {
-        if (p == null || !p.isConnected())
-          continue;
-        p.showTitle(humans_win_title);
-      }
-    });
   }
 
   public static Set<Player> getZombies()
@@ -520,5 +598,55 @@ public abstract class Game
   public static int getHumansCount()
   {
     return Util.getTeamPlayersCount(ZvH.humansTeam);
+  }
+
+  public static void handleDeath(PlayerDeathEvent e)
+  {
+    if (state == Game.State.ENDING)
+    {
+      e.setCancelled(true);
+      return;
+    }
+    var player = e.getPlayer();
+    DiscordBot.sendMessage(e.deathMessage());
+    // kill rewards
+    Combat.handleKillRewards(player);
+
+    // last human
+    if (ZvH.humansTeam.hasPlayer(player) && Game.getHumansCount() == 1)
+    {
+      state = Game.State.ENDING;
+      final var tm = player.getServer().getServerTickManager();
+      // keep player alive
+      // TODO: increment stat
+      e.setCancelled(true);
+      tm.setTickRate(5);
+      Game.stopGameTasks();
+
+      for (var p : Game.playing)
+      {
+        p.setGameMode(GameMode.ADVENTURE);
+        p.closeInventory();
+        p.playSound(player, e.getDeathSound(), 1f, 1f);
+        p.sendMessage(e.deathMessage());
+      }
+      Game.rewardZombies();
+
+      Bukkit.getScheduler().runTaskLater(ZvH.singleton, () -> {
+        tm.setTickRate(20);
+        for (var p : Game.playing)
+        {
+          p.setGameMode(GameMode.SPECTATOR);
+        }
+        Bukkit.getScheduler().runTaskLater(ZvH.singleton, () -> {
+          Game.stop();
+          Game.announceZombiesWin();
+        }, 20 * 5);
+      }, 20 * 2);
+    }
+    player.getInventory().clear();
+    player.setItemOnCursor(null);
+    e.setDroppedExp(0);
+    e.setNewTotalExp(0);
   }
 }

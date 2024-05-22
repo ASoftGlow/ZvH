@@ -20,13 +20,14 @@ import net.dv8tion.jda.api.EmbedBuilder;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.exceptions.ErrorHandler;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.ErrorResponse;
 import net.dv8tion.jda.api.requests.GatewayIntent;
-import net.dv8tion.jda.api.utils.messages.MessageCreateData;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.kyori.adventure.text.Component;
 
 import javax.annotation.Nonnull;
@@ -35,6 +36,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumSet;
+import java.util.Set;
 import java.util.function.BiConsumer;
 
 public class DiscordBot extends ListenerAdapter
@@ -63,30 +65,47 @@ public class DiscordBot extends ListenerAdapter
 
   public static void sendMessage(String msg)
   {
-    if (isReady)
-    {
-      chatChannel.sendMessage(MessageCreateData.fromContent(msg)).queue();
-    }
+    if (!isReady)
+      return;
+
+    var b = new MessageCreateBuilder().setContent(msg).setSuppressedNotifications(true).setAllowedMentions(Set.of());
+    chatChannel.sendMessage(b.build()).queue();
+  }
+
+  public static void sendMessageAndWait(String msg)
+  {
+    if (!isReady)
+      return;
+
+    var b = new MessageCreateBuilder().setContent(msg).setSuppressedNotifications(true).setAllowedMentions(Set.of());
+    chatChannel.sendMessage(b.build()).complete();
   }
 
   public static void setStatus(String status, int players)
   {
+    if (!isReady)
+      return;
+
     var embed = new EmbedBuilder().setTitle(status);
-    if (players > 0)
-      embed.addField("Players", Integer.toString(players), false);
+    embed.addField("Players", Integer.toString(players), false);
 
     statusChannel.retrieveMessageById(statusChannel.getLatestMessageIdLong()).queue((msg) -> {
       msg.editMessageEmbeds(embed.build()).queue();
     }, new ErrorHandler().handle(ErrorResponse.UNKNOWN_MESSAGE, (e) -> {
       statusChannel.sendMessageEmbeds(embed.build()).queue();
     }));
+
+    jda.getPresence().setActivity(
+        Activity.customStatus(players == 1 ? "1 player online" : Integer.toString(players) + " players online"));
   }
 
   public static void stop()
   {
+    if (!isReady)
+      return;
     isReady = false;
     setStatus("Offline", 0);
-    chatChannel.sendMessage(MessageCreateData.fromContent("```swift\nShutting down...```")).complete();
+    sendMessageAndWait("```swift\nShutting down...```");
     jda.shutdown();
   }
 
@@ -118,22 +137,14 @@ public class DiscordBot extends ListenerAdapter
         // Enables MessageReceivedEvent for guild (also known as servers)
         GatewayIntent.GUILD_MESSAGES,
         // Enables the event for private channels (also known as direct messages)
-        GatewayIntent.DIRECT_MESSAGES,
+        // GatewayIntent.DIRECT_MESSAGES,
         // Enables access to message.getContentRaw()
-        GatewayIntent.MESSAGE_CONTENT,
-        // Enables MessageReactionAddEvent for guild
-        GatewayIntent.GUILD_MESSAGE_REACTIONS,
-        // Enables MessageReactionAddEvent for private channels
-        GatewayIntent.DIRECT_MESSAGE_REACTIONS);
-
-    // To start the bot, you have to use the JDABuilder.
-
-    // You can choose one of the factory methods to build your bot:
-    // - createLight(...)
-    // - createDefault(...)
-    // - create(...)
-    // Each of these factory methods use different defaults, you can check the
-    // documentation for more details.
+        GatewayIntent.MESSAGE_CONTENT
+    // Enables MessageReactionAddEvent for guild
+    // GatewayIntent.GUILD_MESSAGE_REACTIONS,
+    // Enables MessageReactionAddEvent for private channels
+    // GatewayIntent.DIRECT_MESSAGE_REACTIONS
+    );
 
     try
     {
@@ -156,8 +167,6 @@ public class DiscordBot extends ListenerAdapter
       // server!
       // Usually, this is done asynchronously on another thread which handles
       // scheduling and rate-limits.
-      // The (ping -> ...) is called a lambda expression, if you're unfamiliar with
-      // this syntax it is HIGHLY recommended to look it up!
       jda.getRestPing().queue(ping ->
       // shows ping in milliseconds
       System.out.println("Logged in with ping: " + ping));
@@ -178,9 +187,6 @@ public class DiscordBot extends ListenerAdapter
       setStatus("Online", ZvH.getPlayerCount());
       sendMessage("```md\n> Online```");
 
-      // Now we can access the fully loaded cache and show some statistics or do other
-      // cache dependent things
-      System.out.println("Guilds: " + jda.getGuildCache().size());
     } catch (InterruptedException e)
     {
       // Thrown if the awaitReady() call is interrupted
@@ -193,11 +199,20 @@ public class DiscordBot extends ListenerAdapter
   {
     if (!event.isFromGuild() || event.getGuild().getIdLong() != guildId)
       return;
+    if (event.getAuthor().getIdLong() == jda.getSelfUser().getIdLong())
+      return;
 
-    if (event.getChannel().getIdLong() == chatChannel.getIdLong()
-        && event.getAuthor().getIdLong() != jda.getSelfUser().getIdLong())
+    if (event.getChannel().getIdLong() == chatChannel.getIdLong())
     {
       messageHandler.accept(event.getAuthor().getEffectiveName(), event.getMessage().getContentDisplay());
+    }
+    // staff channel
+    else if (event.getChannel().getIdLong() == 1241480641598717972L)
+    {
+      if (event.getMessage().getContentRaw().startsWith("!cmd "))
+      {
+        ZvH.CMD = event.getMessage().getContentRaw().substring(5);
+      }
     }
   }
 }

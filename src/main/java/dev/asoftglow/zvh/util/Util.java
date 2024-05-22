@@ -7,7 +7,6 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 
 import net.kyori.adventure.sound.Sound;
 import org.bukkit.World;
@@ -42,9 +41,9 @@ public abstract class Util
   {
     for (var entity : world.getEntitiesByClass(type))
     {
-      String ename = plainSerializer.serialize(entity.customName());
-      if (ename.equals(name))
-        return entity;
+      if (entity.customName() != null)
+        if (plainSerializer.serialize(entity.customName()).equals(name))
+          return entity;
     }
     return null;
   }
@@ -69,6 +68,11 @@ public abstract class Util
     player.playSound(Sound.sound(sound, Sound.Source.MASTER, volume, pitch), player);
   }
 
+  public static void playSound(Player player, org.bukkit.Sound sound)
+  {
+    playSound(player, sound, 1, 1);
+  }
+
   public static void playSoundAll(org.bukkit.Sound sound, float volume, float pitch)
   {
     Bukkit.getServer().getOnlinePlayers().forEach(p -> {
@@ -76,10 +80,10 @@ public abstract class Util
     });
   }
 
-  public static void playSoundAllAt(Location location, org.bukkit.Sound sound, float volume, float pitch)
+  public static void playSoundAllAt(Entity entity, org.bukkit.Sound sound, float volume, float pitch)
   {
     Bukkit.getServer().getOnlinePlayers().forEach(p -> {
-      p.playSound(location, sound, volume, pitch);
+      p.playSound(entity, sound, volume, pitch);
     });
   }
 

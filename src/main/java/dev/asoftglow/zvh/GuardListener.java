@@ -1,20 +1,28 @@
 package dev.asoftglow.zvh;
 
+import java.util.ArrayList;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.GameMode;
 import org.bukkit.Material;
-import org.bukkit.block.Container;
+import org.bukkit.block.Block;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.FallingBlock;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.SignChangeEvent;
+import org.bukkit.event.block.BlockCanBuildEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.SlimeSplitEvent;
-import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
-import org.bukkit.inventory.CartographyInventory;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.util.Vector;
 
 public class GuardListener implements Listener
 {
@@ -28,8 +36,9 @@ public class GuardListener implements Listener
   @EventHandler
   public void onBlockBreak(BlockBreakEvent e)
   {
-    if (Game.isActive() && e.getPlayer().getGameMode().equals(GameMode.SURVIVAL))
-      if (e.getBlock().getLocation().getBlockY() == MapControl.current_size.bounds().y)
+    if (e.getPlayer().getGameMode().equals(GameMode.SURVIVAL))
+      if (Game.getState() != Game.State.STOPPED
+          && e.getBlock().getLocation().getBlockY() == MapControl.current_size.bounds().y)
       {
         e.setCancelled(true);
       }
@@ -49,6 +58,7 @@ public class GuardListener implements Listener
   {
     if (e.getEntity().getType() == EntityType.PRIMED_TNT)
     {
+      var fling = new ArrayList<Block>();
       var destroyed = e.blockList();
       var it = destroyed.iterator();
       while (it.hasNext())
@@ -56,22 +66,72 @@ public class GuardListener implements Listener
         var block = it.next();
         if (!explodeWhitelist.contains(block.getType()))
           it.remove();
+        else if (ThreadLocalRandom.current().nextBoolean() && block.isSolid())
+        {
+          fling.add(block);
+        }
+      }
+
+      for (var b : fling)
+      {
+        var fb = e.getLocation().getWorld().spawn(b.getLocation(), FallingBlock.class);
+        fb.setBlockData(b.getBlockData());
+        fb.setBlockState(b.getState());
+        var v2 = b.getLocation().toVector();
+        v2.setY(v2.getY() + 2);
+        var v = v2.subtract(e.getLocation().toVector());
+        if (v.getX() == 0)
+          v.setX(1);
+        if (v.getY() == 0)
+          v.setY(1);
+        if (v.getZ() == 0)
+          v.setZ(1);
+        fb.setVelocity(new Vector(0.5, 0.5, 0.5).divide(v));
       }
     }
   }
 
   @EventHandler
-  public void onSignChanged(SignChangeEvent e)
+  public void onPlayerInteract(PlayerInteractEvent e)
   {
-    if (e.getPlayer().getGameMode() == GameMode.ADVENTURE)
-      e.setCancelled(true);
+    if (e.getPlayer().getGameMode() != GameMode.ADVENTURE || e.getAction() != Action.RIGHT_CLICK_BLOCK)
+      return;
+    if (e.getClickedBlock().getType() == Material.DARK_OAK_BUTTON)
+      return;
+    if (e.hasItem() && e.getItem().getType() == Material.FISHING_ROD)
+      return;
+    e.setCancelled(true);
+  }
+
+  @EventHandler(priority = EventPriority.LOWEST)
+  public void onFallingBlockSettle(EntityChangeBlockEvent e)
+  {
+    if (e.getEntityType() == EntityType.FALLING_BLOCK)
+    {
+      if (MapControl.current_size != null
+          && (e.getBlock().getLocation().toVector().distanceSquared(MapControl.current_size.zombieSpawn()) < 9
+              || !MapControl.b.contains(e.getBlock().getX(), e.getBlock().getZ())))
+        e.setCancelled(true);
+    }
   }
 
   @EventHandler
-  public void onContainerOpened(InventoryOpenEvent e)
+  public void onIfCanPlace(BlockCanBuildEvent e)
   {
-    if (e.getPlayer().getGameMode() == GameMode.ADVENTURE
-        && (e.getInventory().getHolder() instanceof Container || e.getInventory() instanceof CartographyInventory))
-      e.setCancelled(true);
+    if (Game.isPlaying(e.getPlayer()))
+    {
+      if (MapControl.current_size.zombieSpawn().distanceSquared(
+          e.getBlock().getLocation().toVector().setY(MapControl.current_size.zombieSpawn().getY())) < 9)
+        e.setBuildable(false);
+    }
+  }
+
+  @EventHandler
+  public void onDamaged(EntityDamageEvent e)
+  {
+    if (e.getEntity() instanceof Player && !Game.isPlaying((Player) e.getEntity()))
+    {
+      e.setDamage(0);
+    }
   }
 }

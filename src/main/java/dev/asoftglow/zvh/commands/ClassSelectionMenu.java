@@ -3,53 +3,47 @@ package dev.asoftglow.zvh.commands;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.inventory.InventoryView;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
 import xyz.janboerman.guilib.api.ItemBuilder;
 import xyz.janboerman.guilib.api.menu.*;
-import dev.asoftglow.zvh.Game;
 import dev.asoftglow.zvh.ZClass;
 import dev.asoftglow.zvh.ZClassManager;
 import dev.asoftglow.zvh.ZvH;
 import dev.asoftglow.zvh.util.SelectButton;
+import dev.asoftglow.zvh.util.Util;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 
 public class ClassSelectionMenu implements Listener
 {
   private static MenuHolder<ZvH> menu;
-  private static InventoryView lastView;
-  private static Set<Player> opens = new HashSet<>();
+  private static Set<Player> shouldLeave = new HashSet<>();
 
   private boolean SelectionHandler(Player player, ZClass zClass)
   {
-    Game.zombie_class.put(player, zClass);
     player.clearActivePotionEffects();
-    player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 5));
+    Util.playSound(player, Sound.UI_BUTTON_CLICK, 1, 1);
     if (player.getGameMode() == GameMode.CREATIVE)
     {
-      player.addScoreboardTag("clicked");
+      shouldLeave.remove(player);
       zClass.give(player);
       return true;
     }
     if (ZvH.coins.getScore(player).getScore() >= zClass.price)
     {
+      player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 5));
       ZvH.changeCoins(player, -zClass.price, "shopping");
-      player.addScoreboardTag("clicked");
+      shouldLeave.remove(player);
       zClass.give(player);
-
-      if (player.getName().equals("AthenaViolet"))
-      {
-        player.getInventory().setItemInMainHand(new ItemStack(Material.IRON_SWORD));
-      }
       return true;
     }
     return false;
@@ -60,14 +54,15 @@ public class ClassSelectionMenu implements Listener
     menu = new MenuHolder<>(zvh, 9, "Choose a class:");
 
     menu.setButton(8, new SelectButton<ZvH>((new ItemBuilder(Material.BARRIER)).name("§r§6Leave").build(), e -> {
-      e.getWhoClicked().addScoreboardTag("clicked");
-      Game.leave((Player) e.getWhoClicked());
+      e.getWhoClicked().clearActivePotionEffects();
+      Util.playSound((Player) e.getWhoClicked(), Sound.UI_BUTTON_CLICK, 1, 1);
       return true;
     }));
 
     int i = 0;
-    for (var zClass : ZClassManager.zClasses.values())
+    for (var p : ZClassManager.zClasses.entrySet())
     {
+      var zClass = p.getValue();
       var item = new ItemBuilder(zClass.icon).name("§r§f" + zClass.name.replace('_', ' '));
       if (zClass.price > 0)
         item = item.lore("Costs " + zClass.price);
@@ -78,26 +73,38 @@ public class ClassSelectionMenu implements Listener
 
   public static void showTo(Player player)
   {
-    opens.add(player);
+    shouldLeave.add(player);
     player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, -1, 255, false, false, false));
-    lastView = player.openInventory(menu.getInventory());
+    player.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, -1, 255, false, false, false));
+    player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, -1, 255, false, false, false));
+    player.openInventory(menu.getInventory());
   }
 
   public static boolean hasMenuOpen(Player player)
   {
-    return opens.contains(player);
+    return shouldLeave.contains(player);
+  }
+
+  public static void reset()
+  {
+    shouldLeave.clear();
   }
 
   @EventHandler
   public void onClose(InventoryCloseEvent e)
   {
-    if (e.getPlayer() instanceof Player && lastView == e.getView())
+    if (e.getPlayer() instanceof Player && e.getView().getOriginalTitle().equals("Choose a class:"))
     {
-      opens.remove(e.getPlayer());
-      if (e.getPlayer().getScoreboardTags().contains("clicked"))
-        e.getPlayer().removeScoreboardTag("clicked");
-      else
-        Bukkit.getScheduler().runTask(ZvH.singleton, () -> showTo((Player) e.getPlayer()));
+      var player = (Player) e.getPlayer();
+      if (shouldLeave.remove(player))
+      {
+        player.sendMessage(Component.text("You closed the menu with picked a class, so you were given the default one.")
+            .color(NamedTextColor.RED));
+        player.clearActivePotionEffects();
+        player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 5));
+        // give first
+        ZClassManager.zClasses.entrySet().iterator().next().getValue().give(player);
+      }
     }
   }
 }

@@ -47,12 +47,10 @@ public class MiscListener implements Listener
       {
         Game.leaveHumans(player);
       }
-      if (Game.isActive())
+      if (Game.getState() == Game.State.PLAYING)
         Bukkit.getScheduler().runTask(ZvH.singleton, () -> ClassSelectionMenu.showTo(player));
     }
   }
-
-  private boolean doingDeathAnimation = false;
 
   @EventHandler
   public void onDeath(PlayerDeathEvent e)
@@ -60,50 +58,7 @@ public class MiscListener implements Listener
     var player = e.getPlayer();
     if (Game.isPlaying(player))
     {
-      if (doingDeathAnimation)
-      {
-        e.setCancelled(true);
-        return;
-      }
-      DiscordBot.sendMessage(e.deathMessage());
-      // kill rewards
-      Combat.handleKillRewards(player);
-
-      // last human
-      if (ZvH.humansTeam.hasPlayer(player) && Game.getHumansCount() == 1)
-      {
-        doingDeathAnimation = true;
-        final var tm = player.getServer().getServerTickManager();
-        // keep player alive
-        // TODO: increment stat
-        e.setCancelled(true);
-        tm.setTickRate(5);
-
-        for (var p : Game.playing)
-        {
-          p.setGameMode(GameMode.ADVENTURE);
-          p.closeInventory();
-          p.playSound(player, e.getDeathSound(), 1f, 1f);
-          p.sendMessage(e.deathMessage());
-        }
-        Game.rewardZombies();
-
-        Bukkit.getScheduler().runTaskLater(ZvH.singleton, () -> {
-          for (var p : Game.playing)
-          {
-            p.setGameMode(GameMode.SPECTATOR);
-            tm.setTickRate(20);
-          }
-          Bukkit.getScheduler().runTaskLater(ZvH.singleton, () -> {
-            Game.stop();
-            doingDeathAnimation = false;
-          }, 20 * 5);
-        }, 20 * 2);
-      }
-      player.getInventory().clear();
-      player.setItemOnCursor(null);
-      e.setDroppedExp(0);
-      e.setNewTotalExp(0);
+      Game.handleDeath(e);
     } else
     {
       ZvH.waitersTeam.removePlayer(player);
@@ -155,10 +110,6 @@ public class MiscListener implements Listener
     else
     {
       onClickNpc(e, e.getAttacked());
-      if (e.getAttacked() instanceof Player && Game.isPlaying(e.getPlayer()) && doingDeathAnimation)
-      {
-        e.setCancelled(true);
-      }
     }
   }
 
@@ -228,13 +179,23 @@ public class MiscListener implements Listener
         player.sendActionBar(Component.text("Calibrated tracker", NamedTextColor.GRAY));
       } else if (e.getItem().getType() == Material.GUNPOWDER)
       {
+        if (e.getClickedBlock() != null)
+        {
+          if (e.getClickedBlock().getType() == Material.BARRIER
+              && e.getClickedBlock().getLocation().distanceSquared(e.getPlayer().getLocation()) < 5)
+          {
+            e.getPlayer().sendMessage(Component.text("You are too close to the barrier!").color(NamedTextColor.RED));
+            return;
+          }
+        }
         if (player.getGameMode() != GameMode.CREATIVE)
           e.getItem().setAmount(e.getItem().getAmount() - 1);
         var spawnPos = player.getLocation();
         spawnPos.setY(spawnPos.getY() + 1d);
         var tnt = (TNTPrimed) ZvH.world.spawnEntity(spawnPos, EntityType.PRIMED_TNT, false);
         tnt.setFuseTicks(60);
-        tnt.setVelocity(spawnPos.getDirection().multiply(2.5f));
+        tnt.setVelocity(spawnPos.getDirection().multiply(2.2f));
+        tnt.setSource(player);
         for (var p : Bukkit.getOnlinePlayers())
           p.playSound(player.getLocation(), Sound.ENTITY_SNOWBALL_THROW, 1f, 1.5f);
       }
@@ -273,16 +234,15 @@ public class MiscListener implements Listener
       ((Item) e.getCaught()).setItemStack(null);
       e.setExpToDrop(0);
 
-      final int floor = 2;
+      final int floor = 3;
       final int range = 3;
       var v = ThreadLocalRandom.current().nextInt(range + floor + 1) - floor;
       if (v > 0)
       {
-        Util.playSoundAllAt(e.getPlayer().getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f,
+        Util.playSoundAllAt(e.getPlayer(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f,
             0.5f + (float) v / (float) range);
         ZvH.changeCoins(e.getPlayer(), v * v, "fishing");
-      }
-      else
+      } else
       {
         e.getPlayer().sendActionBar(Component.text("Nothing..."));
       }
