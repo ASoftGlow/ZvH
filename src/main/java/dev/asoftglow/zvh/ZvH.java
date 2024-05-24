@@ -102,14 +102,20 @@ public class ZvH extends JavaPlugin
     Moderation.setConfigFile(getDataFolder().toPath().resolve("muted.json").toFile());
     ZClassManager.init(getDataFolder().toPath().resolve("classes"), getLogger());
     if (!isDev)
-      DiscordBot.start(getDataFolder().toPath().resolve(".env"));
-    DiscordBot.setMessageHandler((author, message) -> {
-      for (var p : Bukkit.getOnlinePlayers())
-      {
-        p.sendMessage(Component.empty().append(discordMsgPrefix).append(Component.text(" <" + author + "> "))
-            .append(Component.text(message)));
-      }
-    });
+    {
+      DiscordBot.login(getConfig().getString("discord.bot-token"));
+      DiscordBot.setMessageHandler((author, message) -> {
+        for (var p : Bukkit.getOnlinePlayers())
+        {
+          p.sendMessage(Component.empty().append(discordMsgPrefix).append(Component.text(" <" + author + "> "))
+              .append(Component.text(message)));
+        }
+      });
+    } else
+    {
+      Database.login(getConfig().getString("database.url"), getConfig().getString("database.username"),
+          getConfig().getString("database.password"));
+    }
 
     ZClassManager.registerZClass("Zombie", Material.ZOMBIE_HEAD, 0);
     ZClassManager.registerZClass("Baby_Zombie", Material.CARROT, 4,
@@ -117,9 +123,9 @@ public class ZvH extends JavaPlugin
         new PotionEffect(PotionEffectType.FAST_DIGGING, -1, 0));
     ZClassManager.registerZClass("Skeleton", Material.SKELETON_SKULL, 5,
         new PotionEffect(PotionEffectType.WEAKNESS, -1, 0));
-    ZClassManager.registerZClass("Slime", Material.SLIME_BALL, 5,
+    ZClassManager.registerZClass("Slime", Material.SLIME_BALL, 7,
         new PotionEffect(PotionEffectType.JUMP, -1, 2, false, false, false));
-    ZClassManager.registerZClass("Witch", Material.POTION, 10);
+    ZClassManager.registerZClass("Witch", Material.POTION, 8);
     ZClassManager.registerZClass("Spider", Material.STRING, 10);
     ZClassManager.registerZClass("Blaze", Material.BLAZE_POWDER, 15);
 
@@ -146,6 +152,8 @@ public class ZvH extends JavaPlugin
         CMD = null;
       }
     }, 40, 1);
+
+    saveDefaultConfig();
   }
 
   @Override
@@ -154,6 +162,7 @@ public class ZvH extends JavaPlugin
     if (Game.getState() != Game.State.STOPPED)
       Game.stop();
     DiscordBot.stop();
+    Database.logout();
   }
 
   @Override
@@ -202,7 +211,7 @@ public class ZvH extends JavaPlugin
       var players = Moderation.getMuted();
       if (players.length == 0)
       {
-        
+
         sender.sendMessage("*Empty*");
         return true;
       }

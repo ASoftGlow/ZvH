@@ -574,10 +574,14 @@ public abstract class Game
 
   public static void rewardHumans()
   {
-    for (var p : getHumans())
+    if (getHumansCount() == 1 && playing.size() > 2)
     {
-      ZvH.changeCoins(p, Rewards.COIN_HUMAN_WIN, "won");
-    }
+      ZvH.changeCoins(getHumans().iterator().next(), Rewards.COIN_LAST_HUMAN_WIN, "won as last human");
+    } else
+      for (var p : getHumans())
+      {
+        ZvH.changeCoins(p, Rewards.COIN_HUMAN_WIN, "won");
+      }
   }
 
   public static Set<Player> getZombies()

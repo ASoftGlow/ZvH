@@ -62,6 +62,8 @@ public abstract class MapControl
     public final Material icon;
     @Getter
     final float weight;
+    @Getter
+    final int min_players;
 
     public String getType()
     {
@@ -70,14 +72,20 @@ public abstract class MapControl
 
     public MapFeature(String name, String description, Material icon, float weight)
     {
+      this(name, description, icon, weight, 0);
+    }
+
+    public MapFeature(String name, String description, Material icon, float weight, int min_players)
+    {
       this.name = name;
       this.description = description;
       this.icon = icon;
       this.weight = weight;
+      this.min_players = min_players;
     }
   }
 
-  public static final record MapSize(MapBounds bounds, int min, Vector zombieSpawn, Vector humanSpawn)
+  public static final record MapSize(MapBounds bounds, int min_players, Vector zombieSpawn, Vector humanSpawn)
   {
   }
 
@@ -107,11 +115,11 @@ public abstract class MapControl
   { new MapSize(new MapBounds(-47, 16, 52, 68, 1, 30), 1, new Vector(36, 2, 42), new Vector(-37, 2, 42)) };
   public final static MapFeature[] features = new MapFeature[]
   { //
-      new MapFeature("Bridge", "A giant bridge located in the center", Material.LADDER, 0.15f),
+      new MapFeature("Bridge", "A giant bridge located in the center", Material.LADDER, 0.15f, 3),
       new MapFeature("Fortress", "A giant fortress located in the center", Material.IRON_DOOR, 0.1f),
       new MapFeature("Bars", "Long, square bars randomly spanning the sky", Material.IRON_BARS, 0.2f),
       new MapFeature("Pillars", "Tall, square pillars randomly spread across the map", Material.QUARTZ_PILLAR, 0.25f),
-      new MapFeature("Grid", "A grid spanning across the sky", Material.OAK_TRAPDOOR, 0.15f),
+      new MapFeature("Grid", "A grid spanning across the sky", Material.OAK_TRAPDOOR, 0.15f, 3),
       new MapFeature(null, null, null, 0.5f)
       /**/ };
   static final File fortress_schem = ZvH.singleton.getDataFolder().toPath().resolve("schematics/fort.schem").toFile();
@@ -129,7 +137,7 @@ public abstract class MapControl
     fortress_p = pf.parseFromInput("75%light_gray_wool,25%gravel", parserContext);
     bridge_p1 = pf.parseFromInput("50%light_gray_wool,50%gravel", parserContext);
     bridge_p2 = pf.parseFromInput("90%light_gray_wool,10%gravel", parserContext);
-    grid_p = pf.parseFromInput("80%light_gray_wool,20%gravel", parserContext);
+    grid_p = pf.parseFromInput("70%light_gray_wool,20%gravel,10%air", parserContext);
 
     red_filter = new HashSet<BaseBlock>();
     red_filter.add(BukkitAdapter.adapt(Material.RED_WOOL.createBlockData()).toBaseBlock());
@@ -143,14 +151,20 @@ public abstract class MapControl
     var it = sizes.iterator();
     while (it.hasNext())
     {
-      var mapSize = it.next();
-      if (playerCount < mapSize.min)
+      if (playerCount < it.next().min_players)
         it.remove();
     }
     if (sizes.size() == 0)
       throw new IllegalArgumentException("No maps for such few players");
     current_size = Util.pickRandom(sizes);
-    current_feature = WeightedArray.getRandomFrom(features);
+    var feats = new ArrayList<>(Arrays.asList(features));
+    var fit = feats.iterator();
+    while (fit.hasNext())
+    {
+      if (playerCount < fit.next().min_players)
+        fit.remove();
+    }
+    current_feature = WeightedArray.getRandomFrom(feats);
     if (current_feature.name == null)
       current_feature = null;
     else
@@ -346,7 +360,7 @@ public abstract class MapControl
         break;
 
       case "Grid":
-        final int size = 5;
+        final int size = 7;
         final var cb = new CuboidRegion(BlockVector3.at(b.x1 + 1, b.y + b.h - 10 - 1, b.z1 + 1),
             BlockVector3.at(b.x2 - 1, b.y + b.h - 10 - 1, b.z2 - 1));
         cb.forEach(block -> {

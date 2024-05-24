@@ -32,9 +32,6 @@ import net.kyori.adventure.text.Component;
 
 import javax.annotation.Nonnull;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -109,18 +106,8 @@ public class DiscordBot extends ListenerAdapter
     jda.shutdown();
   }
 
-  public static void start(Path envPath)
+  public static void login(String token)
   {
-    String token;
-    try
-    {
-      token = new String(Files.readString(envPath));
-    } catch (IOException e)
-    {
-      e.printStackTrace();
-      return;
-    }
-
     // Pick which intents we need to use in our code.
     // To get the best performance, you want to make the most minimalistic list of
     // intents, and have all others disabled.

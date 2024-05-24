@@ -1,8 +1,6 @@
-classes:
-  - name: Zombie
-    icon: ZOMBIE_HEAD
-    price: 0
-
-  - name: Skeleton
-    icon: SKELETON_HEAD
-    price: 10
+discord:
+  bot-token: "?"
+database:
+  url:
+  username:
+  password:

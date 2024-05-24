@@ -20,6 +20,7 @@ import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.SlimeSplitEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.util.Vector;
@@ -129,7 +130,7 @@ public class GuardListener implements Listener
   @EventHandler
   public void onDamaged(EntityDamageEvent e)
   {
-    if (e.getEntity() instanceof Player && !Game.isPlaying((Player) e.getEntity()))
+    if (e.getEntity() instanceof Player && !Game.isPlaying((Player) e.getEntity()) && e.getCause() != DamageCause.VOID)
     {
       e.setDamage(0);
     }
