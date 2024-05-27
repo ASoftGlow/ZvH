@@ -1,7 +1,9 @@
 package dev.asoftglow.zvh;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,6 +22,7 @@ public abstract class Combat
 {
   private static final Map<Player, Set<Player>> assist_history = new HashMap<>();
   private static final Map<Player, Integer> human_kills = new HashMap<>();
+  private static final Map<Player, Integer> kills = new HashMap<>();
 
   public static void handleKillRewards(Player player)
   {
@@ -31,6 +34,7 @@ public abstract class Combat
       if (ZvH.humansTeam.hasPlayer(killer))
       {
         ZvH.changeCoins(killer, Rewards.COIN_ZOMBIE_KILL, "zombie kill");
+
       } else if (ZvH.zombiesTeam.hasPlayer(killer))
       {
         ZvH.changeCoins(killer, Rewards.COIN_HUMAN_KILL, "human kill");
@@ -38,29 +42,33 @@ public abstract class Combat
 
         // FIXME
         // if (Game.getZombiesCount() == 1)
-        //   return;
+        // return;
 
         // final var ceiling = 1;
         // var kills = human_kills.get(killer);
         // int left = ceiling - 1;
         // if (kills == null)
         // {
-        //   human_kills.put(killer, Integer.valueOf(1));
+        // human_kills.put(killer, Integer.valueOf(1));
         // } else
         // {
-        //   if (kills.intValue() >= ceiling - 1)
-        //   {
-        //     Game.reviveHuman(killer);
-        //     human_kills.remove(killer);
-        //     return;
-        //   }
-        //   human_kills.put(killer, Integer.valueOf(kills.intValue() + 1));
-        //   left--;
+        // if (kills.intValue() >= ceiling - 1)
+        // {
+        // Game.reviveHuman(killer);
+        // human_kills.remove(killer);
+        // return;
+        // }
+        // human_kills.put(killer, Integer.valueOf(kills.intValue() + 1));
+        // left--;
         // }
         // killer.sendMessage(Component.text("Infect ").color(NamedTextColor.AQUA)
-        //     .append(Component.text(left).color(NamedTextColor.WHITE).decorate(TextDecoration.BOLD)).append(Component
-        //         .text(left == 1 ? " more human to become human again." : " more humans to become human again.")));
+        // .append(Component.text(left).color(NamedTextColor.WHITE).decorate(TextDecoration.BOLD)).append(Component
+        // .text(left == 1 ? " more human to become human again." : " more humans to
+        // become human again.")));
       }
+
+      var r = kills.get(killer);
+      kills.put(killer, Integer.valueOf(r == null ? 1 : (r.intValue() + 1)));
 
       var wasProjectile = player.getLastDamageCause().getCause().equals(DamageCause.PROJECTILE);
 
@@ -110,8 +118,25 @@ public abstract class Combat
     assisters.add(assister);
   }
 
+  public static int getKills(Player player)
+  {
+    var r = kills.get(player);
+    return r == null ? 0 : r.intValue();
+  }
+
+  public static List<Map.Entry<Player, Integer>> getKillers()
+  {
+    var entries = new ArrayList<>(kills.entrySet());
+    entries.sort((a, b) -> {
+      return b.getValue() - a.getValue();
+    });
+
+    return entries;
+  }
+
   public static void reset()
   {
     assist_history.clear();
+    kills.clear();
   }
 }

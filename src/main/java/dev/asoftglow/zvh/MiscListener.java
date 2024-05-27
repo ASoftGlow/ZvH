@@ -162,10 +162,11 @@ public class MiscListener implements Listener
     {
       if (e.getItem() == null)
         return;
-      if (e.getItem().equals(Game.spec_leave_item))
+
+      if (e.getItem().equals(CustomItems.spec_leave))
       {
         Game.leaveSpectators(player);
-      } else if (e.getItem().equals(ShopMenu.tracker))
+      } else if (e.getItem().equals(CustomItems.tracker))
       {
         var nearest = Util.getClosestTeamMember(player, ZvH.humansTeam);
         if (nearest == null)
@@ -177,6 +178,11 @@ public class MiscListener implements Listener
         player.setCompassTarget(nearest.getLocation());
         Util.playSound(player, Sound.BLOCK_PISTON_CONTRACT, 0.8f, 1.5f);
         player.sendActionBar(Component.text("Calibrated tracker", NamedTextColor.GRAY));
+        player.swingHand(e.getHand());
+      } else if (e.getItem().equals(CustomItems.shop_open))
+      {
+        ShopMenu.handleCommand(player);
+        player.swingHand(e.getHand());
       } else if (e.getItem().getType() == Material.GUNPOWDER)
       {
         if (e.getClickedBlock() != null)
@@ -198,6 +204,7 @@ public class MiscListener implements Listener
         tnt.setSource(player);
         for (var p : Bukkit.getOnlinePlayers())
           p.playSound(player.getLocation(), Sound.ENTITY_SNOWBALL_THROW, 1f, 1.5f);
+        player.swingHand(e.getHand());
       }
     }
   }
@@ -239,8 +246,7 @@ public class MiscListener implements Listener
       var v = ThreadLocalRandom.current().nextInt(range + floor + 1) - floor;
       if (v > 0)
       {
-        Util.playSoundAllAt(e.getPlayer(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f,
-            0.5f + (float) v / (float) range);
+        Util.playSoundAllAt(e.getPlayer(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 0.5f + (float) v / (float) range);
         ZvH.changeCoins(e.getPlayer(), v * v, "fishing");
       } else
       {

@@ -28,7 +28,7 @@ public class ZClass
     {} : effects;
   }
 
-  public void give(@NotNull Player player)
+  public void giveTo(@NotNull Player player)
   {
     player.getInventory().setContents(items);
     for (var e : effects)

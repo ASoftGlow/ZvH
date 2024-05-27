@@ -60,7 +60,7 @@ public class ZvHCommands implements CommandExecutor, TabCompleter
             player.sendMessage("Class %s doesn't exist!".formatted(name));
             break;
           }
-          zClass.give(player);
+          zClass.giveTo(player);
           player.sendMessage("Gave class %s.".formatted(name));
           break;
 

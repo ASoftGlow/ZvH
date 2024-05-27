@@ -30,7 +30,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
-import xyz.janboerman.guilib.api.ItemBuilder;
 
 public abstract class Game
 {
@@ -49,7 +48,6 @@ public abstract class Game
       Component.text("have won!"));
   private static final Title humans_win_title = Title.title(Component.text("Humans", human_style),
       Component.text("have won!"));
-  public static final ItemStack spec_leave_item = new ItemBuilder(Material.BARRIER).name("§r§6Click to leave").build();
 
   private static Set<Player> last_zombies = new HashSet<>();
   public static Set<Player> playing = new HashSet<>();
@@ -145,7 +143,7 @@ public abstract class Game
     leaveWaiters(player);
     player.getInventory().clear();
     player.setItemOnCursor(null);
-    player.getInventory().setItem(8, spec_leave_item);
+    player.getInventory().setItem(8, CustomItems.spec_leave);
     player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, -1, 2, false, false, false));
     player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, -1, 255, false, false, false));
     player.teleport(new Location(player.getWorld(), MapControl.current_size.bounds().getCenter().getBlockX(),
@@ -201,14 +199,8 @@ public abstract class Game
   {
     ZvH.humansTeam.addPlayer(player);
     join(player);
-    player.getInventory()
-        .addItem(new ItemStack(player.getName().equals("AthenaViolet") ? Material.IRON_SWORD : Material.STONE_SWORD));
-    player.getInventory().addItem(new ItemStack(Material.BOW));
-    // y=\max\left(\operatorname{floor}\left(\frac{80}{\operatorname{floor}\left(x\right)+9}\right),2\right)
-    player.getInventory().addItem(new ItemStack(Material.ARROW, Math.max(2, 80 / (playing.size() + 9))));
-    player.getInventory().setChestplate(new ItemStack(Material.IRON_CHESTPLATE));
-    player.getInventory().setLeggings(new ItemStack(Material.CHAINMAIL_LEGGINGS));
-    player.getInventory().setBoots(new ItemStack(Material.CHAINMAIL_BOOTS));
+    HumanClassManager.giveTo(player);
+    player.getInventory().setItem(8, CustomItems.shop_open);
 
     if (revived)
       return;
@@ -359,6 +351,16 @@ public abstract class Game
       updateTime();
     }, 0, 20));
 
+    game_tasks.add(Bukkit.getScheduler().runTaskTimer(ZvH.singleton, () -> {
+      for (var p : playing)
+      {
+        if (!MapControl.current_size.bounds().contains(p.getLocation().getBlock()))
+        {
+          p.setHealth(0);
+        }
+      }
+    }, 0, 20 * 30));
+
     Util.sendServerMsg("A game has started.");
   }
 
@@ -375,8 +377,28 @@ public abstract class Game
     stopGameTasks();
 
     ClassSelectionMenu.reset();
+
+    final var style = Style.style(NamedTextColor.WHITE, TextDecoration.BOLD);
+    final var killers = Combat.getKillers();
+    var killers_msg = Component.text("\n\n  Top killers:");
+    for (int i = 0; i < Math.min(killers.size(), 5); i++)
+    {
+      killers_msg = killers_msg
+          .append(Component.text("\n    %-2d ".formatted(killers.get(i).getValue().intValue()), style)
+              .append(killers.get(i).getKey().displayName()));
+    }
+
     for (var p : playing)
+    {
+      Component msg = Component.newline()
+          .append(Component.text("Game Summary\n\n", NamedTextColor.LIGHT_PURPLE, TextDecoration.UNDERLINED))
+          .append(Component.text("  Your kills: ")).append(Component.text(Combat.getKills(p), style))
+          .append(killers_msg);
+      msg = msg.appendNewline();
+      p.sendMessage(msg);
+
       leave(p);
+    }
     playing.clear();
     Combat.reset();
     ZvH.updateLeaderboards();
@@ -413,7 +435,17 @@ public abstract class Game
 
   public static void updateBoard(Player player)
   {
-    updateBoard(boards.get(player));
+    updateBoard(getBoard(player));
+  }
+
+  private static FastBoard getBoard(Player player)
+  {
+    var fb = boards.get(player);
+    if (fb == null)
+    {
+      fb = addBoard(player);
+    }
+    return fb;
   }
 
   private static BukkitTask count_down_task, waiting_task;
@@ -423,7 +455,7 @@ public abstract class Game
 
   public static void startCountDown()
   {
-    count_down_time[0] = 10 + 1;
+    count_down_time[0] = 15 + 1;
     count_down_task = Bukkit.getScheduler().runTaskTimer(ZvH.singleton, () -> {
       if (--count_down_time[0] == 0)
       {
@@ -482,12 +514,13 @@ public abstract class Game
     }
   }
 
-  public static void addBoard(Player player)
+  public static FastBoard addBoard(Player player)
   {
     var fb = new FastBoard(player);
     fb.updateTitle(board_title);
     boards.put(player, fb);
     updateBoard(fb);
+    return fb;
   }
 
   public static void removeBoard(Player player)
@@ -502,7 +535,7 @@ public abstract class Game
       options.removeAll(last_zombies);
     last_zombies.clear();
 
-    for (int i = 0; i < Math.min((int) Math.ceil((double) players.size() / 10d), 1); i++)
+    for (int i = 0; i < Math.min((int) Math.ceil((double) players.size() / 6d), 1); i++)
     {
       last_zombies.add(Util.popRandom(options));
     }
@@ -543,7 +576,7 @@ public abstract class Game
 
   public static void announceZombiesWin()
   {
-    for (var p : playing)
+    for (var p : Bukkit.getOnlinePlayers())
     {
       p.showTitle(zombies_win_title);
       Util.playSound(p, Sound.ENTITY_ENDER_DRAGON_GROWL, 1f, 1f);
@@ -563,13 +596,11 @@ public abstract class Game
 
   public static void announceHumansWin()
   {
-    Bukkit.getScheduler().runTask(ZvH.singleton, () -> {
-      for (var p : playing)
-      {
-        p.showTitle(humans_win_title);
-        Util.playSound(p, Sound.BLOCK_BEACON_ACTIVATE, 1f, 1f);
-      }
-    });
+    for (var p : Bukkit.getOnlinePlayers())
+    {
+      p.showTitle(humans_win_title);
+      Util.playSound(p, Sound.BLOCK_BEACON_ACTIVATE, 1f, 1f);
+    }
   }
 
   public static void rewardHumans()
@@ -627,6 +658,7 @@ public abstract class Game
       tm.setTickRate(5);
       Game.stopGameTasks();
 
+      ClassSelectionMenu.reset();
       for (var p : Game.playing)
       {
         p.setGameMode(GameMode.ADVENTURE);

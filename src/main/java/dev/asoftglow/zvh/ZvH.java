@@ -113,8 +113,9 @@ public class ZvH extends JavaPlugin
       });
     } else
     {
-      Database.login(getConfig().getString("database.url"), getConfig().getString("database.username"),
-          getConfig().getString("database.password"));
+      // Database.login(getConfig().getString("database.url"),
+      // getConfig().getString("database.username"),
+      // getConfig().getString("database.password"));
     }
 
     ZClassManager.registerZClass("Zombie", Material.ZOMBIE_HEAD, 0);
@@ -123,7 +124,7 @@ public class ZvH extends JavaPlugin
         new PotionEffect(PotionEffectType.FAST_DIGGING, -1, 0));
     ZClassManager.registerZClass("Skeleton", Material.SKELETON_SKULL, 5,
         new PotionEffect(PotionEffectType.WEAKNESS, -1, 0));
-    ZClassManager.registerZClass("Slime", Material.SLIME_BALL, 7,
+    ZClassManager.registerZClass("Slime", Material.SLIME_BALL, 6,
         new PotionEffect(PotionEffectType.JUMP, -1, 2, false, false, false));
     ZClassManager.registerZClass("Witch", Material.POTION, 8);
     ZClassManager.registerZClass("Spider", Material.STRING, 10);
@@ -162,7 +163,7 @@ public class ZvH extends JavaPlugin
     if (Game.getState() != Game.State.STOPPED)
       Game.stop();
     DiscordBot.stop();
-    Database.logout();
+    // Database.logout();
   }
 
   @Override
@@ -278,8 +279,15 @@ public class ZvH extends JavaPlugin
           return true;
 
         case "rules":
-          player.sendMessage(
-              "Rules:\n\n- Be respectful and kind\n- No NSFW content\n- Stay on-topic\n- Don't ask for roles or coins");
+          player.sendMessage("Rules:\n\n" + //
+              "- Be respectful and kind\n" + //
+              "- No NSFW content\n" + //
+              "- Stay on-topic\n" + //
+              "- Don't ask for roles or coins\n" + //
+              "- Don't spam\n" + //
+              "- Don't use cheats\n" + //
+              "- Don't farm coins/levels\n" + //
+              "- No team griefing");
           return true;
 
         case "discord":

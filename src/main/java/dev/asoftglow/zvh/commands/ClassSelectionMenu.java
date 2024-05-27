@@ -15,6 +15,7 @@ import org.bukkit.potion.PotionEffectType;
 
 import xyz.janboerman.guilib.api.ItemBuilder;
 import xyz.janboerman.guilib.api.menu.*;
+import dev.asoftglow.zvh.CustomItems;
 import dev.asoftglow.zvh.ZClass;
 import dev.asoftglow.zvh.ZClassManager;
 import dev.asoftglow.zvh.ZvH;
@@ -35,7 +36,8 @@ public class ClassSelectionMenu implements Listener
     if (player.getGameMode() == GameMode.CREATIVE)
     {
       shouldLeave.remove(player);
-      zClass.give(player);
+      zClass.giveTo(player);
+      player.getInventory().setItem(8, CustomItems.shop_open);
       return true;
     }
     if (ZvH.coins.getScore(player).getScore() >= zClass.price)
@@ -43,7 +45,8 @@ public class ClassSelectionMenu implements Listener
       player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 5));
       ZvH.changeCoins(player, -zClass.price, "shopping");
       shouldLeave.remove(player);
-      zClass.give(player);
+      zClass.giveTo(player);
+      player.getInventory().setItem(8, CustomItems.shop_open);
       return true;
     }
     return false;
@@ -103,7 +106,8 @@ public class ClassSelectionMenu implements Listener
         player.clearActivePotionEffects();
         player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 5));
         // give first
-        ZClassManager.zClasses.entrySet().iterator().next().getValue().give(player);
+        ZClassManager.zClasses.entrySet().iterator().next().getValue().giveTo(player);
+        player.getInventory().setItem(8, CustomItems.shop_open);
       }
     }
   }

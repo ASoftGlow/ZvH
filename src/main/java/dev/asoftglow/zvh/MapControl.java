@@ -15,6 +15,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.entity.ThrownPotion;
@@ -103,12 +104,17 @@ public abstract class MapControl
       this.y = y;
       this.h = h;
     }
+
+    public boolean contains(Block block)
+    {
+      return this.contains(block.getX(), block.getY(), block.getZ());
+    }
   }
 
   static MapSize current_size = null;
   static MapFeature current_feature = null;
 
-  static MapBounds b;
+  private static MapBounds b;
   static MapSize last_size = null;
 
   final static MapSize[] mapSizes =
@@ -120,7 +126,7 @@ public abstract class MapControl
       new MapFeature("Bars", "Long, square bars randomly spanning the sky", Material.IRON_BARS, 0.2f),
       new MapFeature("Pillars", "Tall, square pillars randomly spread across the map", Material.QUARTZ_PILLAR, 0.25f),
       new MapFeature("Grid", "A grid spanning across the sky", Material.OAK_TRAPDOOR, 0.15f, 3),
-      new MapFeature(null, null, null, 0.5f)
+      new MapFeature(null, null, null, 0.3f)
       /**/ };
   static final File fortress_schem = ZvH.singleton.getDataFolder().toPath().resolve("schematics/fort.schem").toFile();
   static final File bridge_schem = ZvH.singleton.getDataFolder().toPath().resolve("schematics/bridge.schem").toFile();
@@ -275,7 +281,7 @@ public abstract class MapControl
         {
           var height = ThreadLocalRandom.current().nextInt(4, b.h - 8);
           var x_slide = ThreadLocalRandom.current().nextInt(b.getWidth() / 2 - psize);
-          var z_slide = ThreadLocalRandom.current().nextInt(b.getLength() - psize - 1);
+          var z_slide = ThreadLocalRandom.current().nextInt(b.getLength() - psize - 2);
 
           ZvH.editSession
               .setBlocks(

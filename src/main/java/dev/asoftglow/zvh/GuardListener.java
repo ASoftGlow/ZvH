@@ -111,7 +111,7 @@ public class GuardListener implements Listener
     {
       if (MapControl.current_size != null
           && (e.getBlock().getLocation().toVector().distanceSquared(MapControl.current_size.zombieSpawn()) < 9
-              || !MapControl.b.contains(e.getBlock().getX(), e.getBlock().getZ())))
+              || !MapControl.current_size.bounds().contains(e.getBlock())))
         e.setCancelled(true);
     }
   }
@@ -121,8 +121,10 @@ public class GuardListener implements Listener
   {
     if (Game.isPlaying(e.getPlayer()))
     {
-      if (MapControl.current_size.zombieSpawn().distanceSquared(
-          e.getBlock().getLocation().toVector().setY(MapControl.current_size.zombieSpawn().getY())) < 9)
+      final var near_zombie_spawn = MapControl.current_size.zombieSpawn().distanceSquared(
+          e.getBlock().getLocation().toVector().setY(MapControl.current_size.zombieSpawn().getY())) < 9;
+      final var outside_map = !MapControl.current_size.bounds().contains(e.getBlock());
+      if (near_zombie_spawn || outside_map)
         e.setBuildable(false);
     }
   }

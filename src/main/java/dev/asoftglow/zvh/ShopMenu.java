@@ -14,20 +14,18 @@ import xyz.janboerman.guilib.api.menu.ItemButton;
 
 public abstract class ShopMenu
 {
-  public final static ItemStack tracker = new ItemBuilder(Material.COMPASS).name("§rTracker")
-      .lore("Points to humans by detecting their heat signature").build();
   private final static ShopItem[] zombie_items = new ShopItem[]
   { new ShopItem(new ItemStack(Material.ENCHANTED_GOLDEN_APPLE), 100),
-      new ShopItem(new ItemBuilder(Material.GUNPOWDER).name("Explosive Powder").lore("Right click to launch an explosive").build(),
-          12),
-      new ShopItem(new ItemStack(Material.SHEARS), 5), new ShopItem(new ItemStack(Material.STONE_SHOVEL), 5),
-      new ShopItem(new ItemStack(Material.LIGHT_GRAY_WOOL, 5), 5), new ShopItem(tracker, 4) },
+      new ShopItem(new ItemBuilder(Material.GUNPOWDER).name("Explosive Powder")
+          .lore("Right click to launch an explosive").build(), 12),
+      new ShopItem(new ItemStack(Material.SHEARS), 8), new ShopItem(new ItemStack(Material.STONE_SHOVEL), 8),
+      new ShopItem(new ItemStack(Material.LIGHT_GRAY_WOOL, 5), 5), new ShopItem(CustomItems.tracker, 4) },
       human_items = new ShopItem[]
-      { new ShopItem(new ItemStack(Material.ARROW, 5), 8), new ShopItem(new ItemStack(Material.SHEARS), 15),
+      { new ShopItem(new ItemStack(Material.ARROW, 4), 9), new ShopItem(new ItemStack(Material.SHEARS), 8),
           new ShopItem(new ItemStack(Material.GOLDEN_APPLE), 40),
           new ShopItem(new ItemStack(Material.LIGHT_GRAY_WOOL, 5), 5),
           new ShopItem(new ItemBuilder(Material.RED_WOOL).name("Unbreakable Wool")
-              .lore("Cannot be broken by explosions").amount(1).build(), 12),
+              .lore("Cannot be broken by explosions").amount(1).build(), 10),
           new ShopItem(new ItemStack(Material.GLASS, 2), 7),
           new ShopItem(new ItemBuilder(Material.SHIELD).damage(296).build(), 15) };
 
@@ -86,7 +84,7 @@ public abstract class ShopMenu
 
   public static void handleCommand(Player player)
   {
-    if (!Game.isPlaying(player))
+    if (!Game.isPlaying(player) || Game.getState() != Game.State.PLAYING)
     {
       player.sendMessage("! Must be in-game");
       return;
