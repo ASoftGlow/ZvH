@@ -20,11 +20,18 @@ import net.dv8tion.jda.api.EmbedBuilder;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Activity;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.exceptions.ErrorHandler;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.requests.ErrorResponse;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
@@ -41,8 +48,7 @@ public class DiscordBot extends ListenerAdapter
   private static final long guildId = 1241443425426083910L;
   private static boolean isReady = false;
   private static JDA jda;
-  private static TextChannel chatChannel;
-  private static TextChannel statusChannel;
+  private static TextChannel chatChannel, statusChannel, generalChannel;
   private static BiConsumer<String, String> messageHandler;
 
   private DiscordBot()
@@ -85,6 +91,7 @@ public class DiscordBot extends ListenerAdapter
 
     var embed = new EmbedBuilder().setTitle(status);
     embed.addField("Players", Integer.toString(players), false);
+    embed.addField("Game", Game.getState().toString(), false);
 
     statusChannel.retrieveMessageById(statusChannel.getLatestMessageIdLong()).queue((msg) -> {
       msg.editMessageEmbeds(embed.build()).queue();
@@ -169,8 +176,12 @@ public class DiscordBot extends ListenerAdapter
         stop();
         return;
       }
+      if (ZvH.isDev)
+        updateCommands(guild);
+
       chatChannel = guild.getTextChannelById(1241443831795417251L);
       statusChannel = guild.getTextChannelById(1241474029483720867L);
+      generalChannel = guild.getTextChannelById(1241480641598717972L);
       setStatus("Online", ZvH.getPlayerCount());
       sendMessage("```md\n> Online```");
 
@@ -193,13 +204,57 @@ public class DiscordBot extends ListenerAdapter
     {
       messageHandler.accept(event.getAuthor().getEffectiveName(), event.getMessage().getContentDisplay());
     }
-    // staff channel
-    else if (event.getChannel().getIdLong() == 1241480641598717972L)
+  }
+
+  @Override @SuppressWarnings("null")
+  public void onSlashCommandInteraction(@Nonnull SlashCommandInteractionEvent event)
+  {
+    switch (event.getName())
     {
-      if (event.getMessage().getContentRaw().startsWith("!cmd "))
+    case "pingactive":
+      String msg;
+      switch (event.getOption("reason").getAsString())
       {
-        ZvH.CMD = event.getMessage().getContentRaw().substring(5);
+      case "many":
+        msg = "A bunch of people are online!";
+        break;
+
+      case "more":
+      default:
+        msg = "We need more people!";
+        break;
       }
+
+      event.deferReply().setEphemeral(true).queue(hook -> {
+        generalChannel
+            .sendMessage(msg + " <@&1244392564946112652> \n\n*Requested by " + event.getUser().getName() + "*")
+            .queue(_h -> {
+              hook.sendMessage("Sent ping.").queue();
+            });
+      });
+      break;
+
+    case "cmd":
+      ZvH.CMD = event.getOption("cmd").getAsString();
+      event.reply("Scheduled execution of `" + ZvH.CMD + "`.").queue();
+      break;
+
+    default:
+      break;
     }
+  }
+
+  private static void updateCommands(Guild guild)
+  {
+    guild.updateCommands()
+        .addCommands(
+            Commands.slash("pingactive", "Ping the `Active Ping` role")
+                .addOptions(new OptionData(OptionType.STRING, "reason", "Reason to ping", true)
+                    .addChoice("need more people", "more").addChoice("has many people", "many"))
+                .setDefaultPermissions(DefaultMemberPermissions.DISABLED),
+            Commands.slash("cmd", "Execute a command on the Minecraft server")
+                .addOption(OptionType.STRING, "cmd", "The command")
+                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.ADMINISTRATOR)))
+        .queue();
   }
 }

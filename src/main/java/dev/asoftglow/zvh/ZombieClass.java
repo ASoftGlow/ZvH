@@ -6,7 +6,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
-public class ZClass
+import lombok.Setter;
+
+public class ZombieClass implements SpeciesClass
 {
   @NotNull
   public final String name;
@@ -15,9 +17,10 @@ public class ZClass
   public final int price;
   @NotNull
   public final PotionEffect[] effects;
+  @Setter
   public ItemStack[] items = new ItemStack[0];
 
-  public ZClass(@NotNull String name, @NotNull Material icon, int price, ItemStack[] items, PotionEffect[] effects)
+  public ZombieClass(@NotNull String name, @NotNull Material icon, int price, ItemStack[] items, PotionEffect[] effects)
   {
     this.name = name;
     this.icon = icon;

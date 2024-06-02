@@ -1,12 +1,11 @@
 package dev.asoftglow.zvh;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
 import java.util.UUID;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -22,9 +21,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 import dev.asoftglow.zvh.commands.ClassSelectionMenu;
 import dev.asoftglow.zvh.util.Util;
-import fr.mrmicky.fastboard.adventure.FastBoard;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
@@ -35,11 +32,8 @@ public abstract class Game
 {
   private static final int REQUIRED_PLAYERS = ZvH.isDev ? 1 : 2;
   private static final int SURIVAL_TIME = 60 * 5;
-  private static HashMap<Player, FastBoard> boards = new HashMap<>();
-  private static final Style zombie_style = Style.style(NamedTextColor.DARK_GREEN, TextDecoration.BOLD);
-  private static final Style human_style = Style.style(NamedTextColor.GOLD, TextDecoration.BOLD);
-  private static final TextComponent board_title = Component.text().append(Component.text("Z", zombie_style))
-      .append(Component.text("v")).append(Component.text("H", human_style)).build();
+  public static final Style zombie_style = Style.style(NamedTextColor.DARK_GREEN, TextDecoration.BOLD);
+  public static final Style human_style = Style.style(NamedTextColor.GOLD, TextDecoration.BOLD);
   private static final Title zombie_spawn_title = Title.title(Component.text("Zombie", zombie_style),
       Component.text("Kill the humans!"));
   private static final Title human_spawn_title = Title.title(Component.text("Human", human_style),
@@ -57,12 +51,33 @@ public abstract class Game
 
   public enum State
   {
-    STOPPED, PLAYING, ENDING
+    STOPPED, PLAYING, ENDING, LOADING;
+
+    @Override
+    public String toString()
+    {
+      return this.name().toLowerCase();
+    }
   };
 
   public static Game.State getState()
   {
     return Game.state;
+  }
+
+  public static Component getStateText()
+  {
+    return switch (Game.getState())
+    {
+    case LOADING -> Component.text("Working...");
+    case STOPPED -> Component.text("Waiting... %d/%d".formatted(ZvH.waitersTeam.getEntries().size(), REQUIRED_PLAYERS));
+    case PLAYING, ENDING -> getFormatedTime();
+    };
+  }
+
+  public static Component getFormatedTime()
+  {
+    return Component.text(String.format("Time: %d:%02d", game_time / 60, game_time % 60));
   }
 
   public static void clean()
@@ -108,7 +123,7 @@ public abstract class Game
       }
     } else
     {
-      updateBoards();
+      SideBoard.updateGameState();
     }
 
     if (ZvH.waitersTeam.getEntries().size() == 1)
@@ -128,7 +143,7 @@ public abstract class Game
       {
         cancelCountDown();
       } else
-        updateBoards();
+        SideBoard.updateGameState();
       if (ZvH.waitersTeam.getEntries().size() == 0)
       {
         waiting_task.cancel();
@@ -173,9 +188,10 @@ public abstract class Game
     }
     playing.add(player);
     player.setGameMode(GameMode.SURVIVAL);
-    player.setHealth(20d);
+    player.setHealth(player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue());
     player.getInventory().clear();
     player.setItemOnCursor(null);
+    player.getInventory().setHeldItemSlot(0);
     player.clearActivePotionEffects();
     player.setRespawnLocation(
         MapControl.getLocation(player, MapControl.current_size.zombieSpawn(), MapControl.current_size.humanSpawn()),
@@ -199,8 +215,12 @@ public abstract class Game
   {
     ZvH.humansTeam.addPlayer(player);
     join(player);
-    HumanClassManager.giveTo(player);
-    player.getInventory().setItem(8, CustomItems.shop_open);
+
+    Database.getIntStat(player, "lvl", lvl -> {
+
+      SpeciesClassManager.getHumanClass(lvl.orElse(0)).giveTo(player);
+      player.getInventory().setItem(8, CustomItems.shop_open);
+    });
 
     if (revived)
       return;
@@ -210,15 +230,17 @@ public abstract class Game
     Util.playSound(player, Sound.ENTITY_VILLAGER_AMBIENT, 1f, 0.8f);
   }
 
-  public static void reviveHuman(Player player)
+  public static void reviveZombie(Player player)
   {
+    player.getAdvancementProgress(ZvH.revival).awardCriteria("revival");
     Util.playSoundAllAt(player, Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 0.9f, 1.2f);
     Util.sendServerMsg(Component.text(player.getName()).decorate(TextDecoration.BOLD)
         .append(Component.text(" has been become human again!").color(NamedTextColor.GRAY))
         .hoverEvent(HoverEvent.showText(Component.text("Infect 3 humans as a zombie"))));
 
     joinHumans(player, true);
-    player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 3, 2));
+    player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 3, 1));
+    player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 3, 1));
   }
 
   public static void leaveHumans(Player player)
@@ -274,7 +296,9 @@ public abstract class Game
           } else
           {
             if (last_zombies.size() == 1 && last_zombies.iterator().next() == player)
+            {
               temp_blocked.add(player.getUniqueId());
+            }
             // choose new zombies
             for (var p : pickZombies(playing))
             {
@@ -285,20 +309,28 @@ public abstract class Game
             }
           }
         }
+        if (isQuiting)
+        {
+          last_zombies.remove(player);
+        }
       }
     } else
     {
       ZvH.zombiesTeam.removePlayer(player);
       ZvH.humansTeam.removePlayer(player);
+      leaveWaiters(player);
     }
 
-    leaveWaiters(player);
+    player.closeInventory();
     player.getInventory().clear();
     player.setItemOnCursor(null);
     player.setHealth(player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue());
     player.teleport(ZvH.worldSpawnLocation);
 
-    Music.playLobby(player);
+    if (!isQuiting)
+    {
+      Music.playLobby(player);
+    }
   }
 
   public static boolean isPlaying(Player player)
@@ -318,7 +350,8 @@ public abstract class Game
       var player = Bukkit.getPlayer(e);
       player.sendActionBar(Component.empty());
       ZvH.waitersTeam.removePlayer(player);
-      updateBoard(player);
+      SideBoard.updateGameState(player);
+      player.closeInventory();
       playing.add(player);
     }
     game_time = SURIVAL_TIME;// + Math.min(10, playing.size()) * 15;
@@ -376,16 +409,15 @@ public abstract class Game
     Bukkit.getServer().getServerTickManager().setTickRate(20);
     stopGameTasks();
 
-    ClassSelectionMenu.reset();
-
     final var style = Style.style(NamedTextColor.WHITE, TextDecoration.BOLD);
     final var killers = Combat.getKillers();
     var killers_msg = Component.text("\n\n  Top killers:");
     for (int i = 0; i < Math.min(killers.size(), 5); i++)
     {
+      var player = Bukkit.getPlayer(killers.get(i).getKey());
       killers_msg = killers_msg
           .append(Component.text("\n    %-2d ".formatted(killers.get(i).getValue().intValue()), style)
-              .append(killers.get(i).getKey().displayName()));
+              .append(player == null ? Component.text("?") : player.displayName()));
     }
 
     for (var p : playing)
@@ -401,51 +433,11 @@ public abstract class Game
     }
     playing.clear();
     Combat.reset();
+    ClassSelectionMenu.reset();
+
     ZvH.updateLeaderboards();
-
-    updateBoards();
+    SideBoard.updateGameState();
     Util.sendServerMsg("This game has ended.");
-  }
-
-  public static void updateBoards()
-  {
-    for (var fb : boards.values())
-    {
-      updateBoard(fb);
-    }
-  }
-
-  public static void updateBoard(FastBoard fb)
-  {
-    var lines = new ArrayList<Component>();
-    lines.add(Component.empty());
-    if (state == Game.State.STOPPED)
-    {
-      lines.add(Component.text("Waiting... %d/%d".formatted(ZvH.waitersTeam.getEntries().size(), REQUIRED_PLAYERS)));
-    } else
-    {
-      lines.add(getFormatedTime());
-    }
-    lines.add(Component.empty());
-    lines.add(Component.text("Coins: " + ZvH.coins.getScore(fb.getPlayer()).getScore()));
-    lines.add(Component.empty());
-
-    fb.updateLines(lines);
-  }
-
-  public static void updateBoard(Player player)
-  {
-    updateBoard(getBoard(player));
-  }
-
-  private static FastBoard getBoard(Player player)
-  {
-    var fb = boards.get(player);
-    if (fb == null)
-    {
-      fb = addBoard(player);
-    }
-    return fb;
   }
 
   private static BukkitTask count_down_task, waiting_task;
@@ -461,35 +453,19 @@ public abstract class Game
       {
         cancelCountDown();
         waiting_task.cancel();
-        for (var fb : boards.values())
-        {
-          fb.updateLine(1, Component.text("Working..."));
-        }
+        state = Game.State.LOADING;
+        SideBoard.updateGameState();
         start();
         return;
       }
-      updateCountDown(count_down_time[0]);
+      SideBoard.updateCountDown(count_down_time[0]);
     }, 0, 20);
   }
 
   public static void cancelCountDown()
   {
     count_down_task.cancel();
-    updateBoards();
-  }
-
-  private static void updateCountDown(int t)
-  {
-    for (var fb : boards.values())
-    {
-      fb.updateLine(1, Component.text("Starting in " + t));
-      Util.playSound(fb.getPlayer(), Sound.BLOCK_NOTE_BLOCK_BIT, 0.8f, 2f);
-    }
-  }
-
-  private static Component getFormatedTime()
-  {
-    return Component.text(String.format("Time: %d:%02d", game_time / 60, game_time % 60));
+    SideBoard.updateGameState();
   }
 
   private static void updateTime()
@@ -501,41 +477,26 @@ public abstract class Game
       announceHumansWin();
       return;
     }
-    for (var fb : boards.values())
-    {
-      fb.updateLine(1, getFormatedTime());
-    }
+    SideBoard.updateGameState();
     if (game_time != 0 && game_time % 60 == 0)
     {
-      for (var p : getHumans())
-      {
-        ZvH.changeCoins(p, Rewards.COIN_HUMAN_ALIVE, "stayin alive");
-      }
+      Rewards.changeCoins(getHumans(), Rewards.COINS_HUMAN_ALIVE, "staying alive");
     }
-  }
-
-  public static FastBoard addBoard(Player player)
-  {
-    var fb = new FastBoard(player);
-    fb.updateTitle(board_title);
-    boards.put(player, fb);
-    updateBoard(fb);
-    return fb;
-  }
-
-  public static void removeBoard(Player player)
-  {
-    boards.remove(player).delete();
   }
 
   public static Set<Player> pickZombies(Set<Player> players)
   {
+    int num_chosen = players.size() / 6 + 1;
     var options = new HashSet<>(players);
-    if (players.size() > 1)
-      options.removeAll(last_zombies);
+
+    var it = last_zombies.iterator();
+    while (it.hasNext() && options.size() > num_chosen)
+    {
+      options.remove(it.next());
+    }
     last_zombies.clear();
 
-    for (int i = 0; i < Math.min((int) Math.ceil((double) players.size() / 6d), 1); i++)
+    for (int i = 0; i < num_chosen; i++)
     {
       last_zombies.add(Util.popRandom(options));
     }
@@ -551,6 +512,7 @@ public abstract class Game
     }
     switch (state)
     {
+    case LOADING:
     case ENDING:
       player.sendMessage(Component.text("Please wait a moment...").color(NamedTextColor.RED));
       break;
@@ -579,19 +541,43 @@ public abstract class Game
     for (var p : Bukkit.getOnlinePlayers())
     {
       p.showTitle(zombies_win_title);
-      Util.playSound(p, Sound.ENTITY_ENDER_DRAGON_GROWL, 1f, 1f);
+      Util.playSound(p, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.7f, 1f);
     }
   }
 
+  @SuppressWarnings("unchecked")
   public static void rewardZombies()
   {
-    for (var p : getZombies())
+    var infected_zombies = getZombies();
+
+    if (last_zombies.size() > 0)
     {
-      if (last_zombies.contains(p))
-        ZvH.changeCoins(p, Rewards.COIN_FIRST_ZOMBIE_WIN, "won as first zombie");
-      else
-        ZvH.changeCoins(p, Rewards.COIN_ZOMBIE_WIN, "won");
+      infected_zombies.removeAll(last_zombies);
+
+      // first zombies
+      Database.S_changeXp(last_zombies, Rewards.XP_FIRST_ZOMBIE_WIN);
+      Rewards.S_changeCoins(last_zombies, Rewards.COINS_FIRST_ZOMBIE_WIN,
+          last_zombies.size() == 1 ? "won as first zombie" : "won as a first zombie");
     }
+
+    // zombies
+    Database.S_changeXp(last_zombies, Rewards.XP_ZOMBIE_WIN);
+    Rewards.S_changeCoins(last_zombies, Rewards.COINS_ZOMBIE_WIN, "won");
+
+    Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
+      if (last_zombies.size() > 0)
+      {
+        // first zombies
+        Database.changeIntStats(last_zombies, Pair.of("z_wins", 1), Pair.of("play_time", game_time),
+            Pair.of("coins", Rewards.COINS_FIRST_ZOMBIE_WIN), Pair.of("xp", Rewards.XP_FIRST_ZOMBIE_WIN));
+      }
+
+      Database.changeIntStats(infected_zombies, Pair.of("z_wins", 1), Pair.of("play_time", game_time),
+          Pair.of("coins", Rewards.COINS_ZOMBIE_WIN), Pair.of("xp", Rewards.XP_ZOMBIE_WIN));
+
+      // humans
+      Database.changeIntStats(getHumans(), Pair.of("h_losses", 1), Pair.of("play_time", game_time));
+    });
   }
 
   public static void announceHumansWin()
@@ -603,16 +589,39 @@ public abstract class Game
     }
   }
 
+  @SuppressWarnings("unchecked")
   public static void rewardHumans()
   {
-    if (getHumansCount() == 1 && playing.size() > 2)
+    var humans = getHumans();
+    var zombies = getZombies();
+    var last_human = humans.size() == 1 && playing.size() > 2 ? humans.iterator().next() : null;
+
+    if (last_human != null)
     {
-      ZvH.changeCoins(getHumans().iterator().next(), Rewards.COIN_LAST_HUMAN_WIN, "won as last human");
+      Database.S_changeXp(last_human, Rewards.XP_LAST_HUMAN_WIN);
+      Rewards.S_changeCoins(last_human, Rewards.COINS_LAST_HUMAN_WIN, "won as last human");
+
     } else
-      for (var p : getHumans())
+    {
+      Database.S_changeXp(humans, Rewards.XP_LAST_HUMAN_WIN);
+      Rewards.S_changeCoins(humans, Rewards.COINS_HUMAN_WIN, "won");
+    }
+
+    Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
+      if (last_human != null)
       {
-        ZvH.changeCoins(p, Rewards.COIN_HUMAN_WIN, "won");
+        // last human
+        Database.changeIntStats(humans, Pair.of("h_wins", 1), Pair.of("play_time", game_time),
+            Pair.of("coins", Rewards.COINS_LAST_HUMAN_WIN), Pair.of("xp", Rewards.XP_LAST_HUMAN_WIN));
+      } else
+      {
+        // humans
+        Database.changeIntStats(humans, Pair.of("h_wins", 1), Pair.of("play_time", game_time));
       }
+
+      // zombies
+      Database.changeIntStats(zombies, Pair.of("z_losses", 1), Pair.of("play_time", game_time));
+    });
   }
 
   public static Set<Player> getZombies()
@@ -648,7 +657,7 @@ public abstract class Game
     Combat.handleKillRewards(player);
 
     // last human
-    if (ZvH.humansTeam.hasPlayer(player) && Game.getHumansCount() == 1)
+    if (ZvH.humansTeam.hasPlayer(player) && getHumansCount() == 1)
     {
       state = Game.State.ENDING;
       final var tm = player.getServer().getServerTickManager();
@@ -656,27 +665,27 @@ public abstract class Game
       // TODO: increment stat
       e.setCancelled(true);
       tm.setTickRate(5);
-      Game.stopGameTasks();
+      stopGameTasks();
 
       ClassSelectionMenu.reset();
-      for (var p : Game.playing)
+      for (var p : playing)
       {
         p.setGameMode(GameMode.ADVENTURE);
         p.closeInventory();
         p.playSound(player, e.getDeathSound(), 1f, 1f);
         p.sendMessage(e.deathMessage());
       }
-      Game.rewardZombies();
+      rewardZombies();
 
       Bukkit.getScheduler().runTaskLater(ZvH.singleton, () -> {
         tm.setTickRate(20);
-        for (var p : Game.playing)
+        for (var p : playing)
         {
           p.setGameMode(GameMode.SPECTATOR);
         }
         Bukkit.getScheduler().runTaskLater(ZvH.singleton, () -> {
-          Game.stop();
-          Game.announceZombiesWin();
+          stop();
+          announceZombiesWin();
         }, 20 * 5);
       }, 20 * 2);
     }

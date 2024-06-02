@@ -1,9 +1,11 @@
 package dev.asoftglow.zvh.util;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Bukkit;
@@ -11,7 +13,9 @@ import org.bukkit.Bukkit;
 import net.kyori.adventure.sound.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scoreboard.Team;
 
 import dev.asoftglow.zvh.DiscordBot;
@@ -48,27 +52,12 @@ public abstract class Util
     return null;
   }
 
-  public static List<Player> getPlayersWithTag(String tag)
-  {
-    List<Player> playersWithTag = new ArrayList<>();
-
-    for (var player : Bukkit.getOnlinePlayers())
-    {
-      if (player.getScoreboardTags().contains(tag))
-      {
-        playersWithTag.add(player);
-      }
-    }
-
-    return playersWithTag;
-  }
-
-  public static void playSound(Player player, org.bukkit.Sound sound, float volume, float pitch)
+  public static void playSound(HumanEntity player, org.bukkit.Sound sound, float volume, float pitch)
   {
     player.playSound(Sound.sound(sound, Sound.Source.MASTER, volume, pitch), player);
   }
 
-  public static void playSound(Player player, org.bukkit.Sound sound)
+  public static void playSound(HumanEntity player, org.bukkit.Sound sound)
   {
     playSound(player, sound, 1, 1);
   }
@@ -156,5 +145,44 @@ public abstract class Util
       }
     }
     return result;
+  }
+
+  public static void addLore(ItemMeta itemMeta, Component lore)
+  {
+    if (itemMeta.hasLore())
+    {
+      var old_lore = itemMeta.lore();
+      old_lore.add(lore);
+      itemMeta.lore(old_lore);
+
+    } else
+    {
+      itemMeta.lore(List.of(lore));
+    }
+  }
+
+  public static String[] getUUIDs(Collection<Player> players)
+  {
+    var UUIDs = new String[players.size()];
+    int i = 0;
+    for (var p : players)
+    {
+      UUIDs[i++] = p.getUniqueId().toString();
+    }
+    return UUIDs;
+  }
+
+  public static Collection<Player> getPlayers(Collection<UUID> uuids)
+  {
+    var players = new ArrayList<Player>();
+    for (var u : uuids)
+    {
+      Player p = Bukkit.getPlayer(u);
+      if (p != null && p.isConnected())
+      {
+        players.add(p);
+      }
+    }
+    return players;
   }
 }

@@ -14,13 +14,15 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
 import xyz.janboerman.guilib.api.ItemBuilder;
-import xyz.janboerman.guilib.api.menu.*;
+import xyz.janboerman.guilib.api.menu.MenuHolder;
 import dev.asoftglow.zvh.CustomItems;
-import dev.asoftglow.zvh.ZClass;
-import dev.asoftglow.zvh.ZClassManager;
+import dev.asoftglow.zvh.Database;
+import dev.asoftglow.zvh.Rewards;
+import dev.asoftglow.zvh.ZombieClass;
+import dev.asoftglow.zvh.SpeciesClassManager;
 import dev.asoftglow.zvh.ZvH;
-import dev.asoftglow.zvh.util.SelectButton;
 import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.util.guilib.SelectButton;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
@@ -29,26 +31,29 @@ public class ClassSelectionMenu implements Listener
   private static MenuHolder<ZvH> menu;
   private static Set<Player> shouldLeave = new HashSet<>();
 
-  private boolean SelectionHandler(Player player, ZClass zClass)
+  private boolean SelectionHandler(Player player, ZombieClass zClass)
   {
-    player.clearActivePotionEffects();
-    Util.playSound(player, Sound.UI_BUTTON_CLICK, 1, 1);
-    if (player.getGameMode() == GameMode.CREATIVE)
-    {
-      shouldLeave.remove(player);
-      zClass.giveTo(player);
-      player.getInventory().setItem(8, CustomItems.shop_open);
-      return true;
-    }
-    if (ZvH.coins.getScore(player).getScore() >= zClass.price)
-    {
-      player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 5));
-      ZvH.changeCoins(player, -zClass.price, "shopping");
-      shouldLeave.remove(player);
-      zClass.giveTo(player);
-      player.getInventory().setItem(8, CustomItems.shop_open);
-      return true;
-    }
+    Database.getIntStat(player, "coins", coins -> {
+
+      player.clearActivePotionEffects();
+      Util.playSound(player, Sound.UI_BUTTON_CLICK, 1, 1);
+      if (player.getGameMode() == GameMode.CREATIVE)
+      {
+        zClass.giveTo(player);
+        player.getInventory().setItem(8, CustomItems.shop_open);
+        shouldLeave.remove(player);
+        player.closeInventory();
+
+      } else if (coins.isPresent() && coins.getAsInt() >= zClass.price)
+      {
+        player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 5));
+        Rewards.changeCoins(player, -zClass.price, "shopping");
+        zClass.giveTo(player);
+        player.getInventory().setItem(8, CustomItems.shop_open);
+        shouldLeave.remove(player);
+        player.closeInventory();
+      }
+    });
     return false;
   }
 
@@ -63,9 +68,9 @@ public class ClassSelectionMenu implements Listener
     }));
 
     int i = 0;
-    for (var p : ZClassManager.zClasses.entrySet())
+    for (var c : SpeciesClassManager.speciesGetClassNames("zombie"))
     {
-      var zClass = p.getValue();
+      var zClass = (ZombieClass) SpeciesClassManager.speciesGetClass("zombie", c);
       var item = new ItemBuilder(zClass.icon).name("§r§f" + zClass.name.replace('_', ' '));
       if (zClass.price > 0)
         item = item.lore("Costs " + zClass.price);
@@ -106,7 +111,7 @@ public class ClassSelectionMenu implements Listener
         player.clearActivePotionEffects();
         player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 5));
         // give first
-        ZClassManager.zClasses.entrySet().iterator().next().getValue().giveTo(player);
+        SpeciesClassManager.speciesGetClass("zombie", "Zombie").giveTo(player);
         player.getInventory().setItem(8, CustomItems.shop_open);
       }
     }

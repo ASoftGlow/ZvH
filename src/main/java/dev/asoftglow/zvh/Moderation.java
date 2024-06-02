@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -43,7 +44,7 @@ public class Moderation implements Listener
       config = (JSONArray) parser.parse(new FileReader(configFile));
     } catch (IOException | ParseException e)
     {
-      ZvH.singleton.getLogger().log(Level.SEVERE, "Failed to read moderation config file!");
+      Logger.Get().log(Level.SEVERE, "Failed to read moderation config file!");
       e.printStackTrace();
     }
   }
@@ -55,7 +56,7 @@ public class Moderation implements Listener
       writer.write(config.toJSONString());
     } catch (IOException e)
     {
-      ZvH.singleton.getLogger().log(Level.SEVERE, "Failed to write moderation config file!");
+      Logger.Get().log(Level.SEVERE, "Failed to write moderation config file!");
       e.printStackTrace();
     }
   }
@@ -107,8 +108,7 @@ public class Moderation implements Listener
     {
       e.setCancelled(true);
       e.getPlayer().sendMessage(e.signedMessage(), ChatType.CHAT.bind(e.getPlayer().name()));
-      ZvH.singleton.getLogger()
-          .info(e.getPlayer().getName() + " tried to speak: " + ZvH.plainSerializer.serialize(e.message()));
+      Logger.Get().info(e.getPlayer().getName() + " tried to speak: " + ZvH.plainSerializer.serialize(e.message()));
     } else
     {
       DiscordBot.sendMessage(Component.text("<" + e.getPlayer().getName() + "> ").append(e.message()));
@@ -124,6 +124,55 @@ public class Moderation implements Listener
     if (mutableCommands.contains(cmd) && isMuted(e.getPlayer()))
     {
       e.setCancelled(true);
+    }
+  }
+
+  private static final Set<UUID> vanished_players = new HashSet<>();
+
+  public static void vanish(Player player)
+  {
+    if (vanished_players.add(player.getUniqueId()))
+    {
+      for (var p : Bukkit.getOnlinePlayers())
+      {
+        if (!p.isOp())
+        {
+          p.hidePlayer(ZvH.singleton, player);
+        }
+      }
+    }
+  }
+
+  public static void unvanish(Player player)
+  {
+    if (vanished_players.remove(player.getUniqueId()))
+    {
+      for (var p : Bukkit.getOnlinePlayers())
+      {
+        if (!p.isOp())
+        {
+          p.showPlayer(ZvH.singleton, player);
+        }
+      }
+    }
+  }
+
+  public static void toggleVanish(Player player)
+  {
+    if (vanished_players.contains(player.getUniqueId()))
+    {
+      unvanish(player);
+    } else
+    {
+      vanish(player);
+    }
+  }
+
+  public static void vanishTo(Player player)
+  {
+    for (var u : vanished_players)
+    {
+      player.hidePlayer(ZvH.singleton, Bukkit.getPlayer(u));
     }
   }
 }

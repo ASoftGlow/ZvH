@@ -247,7 +247,7 @@ public class MiscListener implements Listener
       if (v > 0)
       {
         Util.playSoundAllAt(e.getPlayer(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 0.5f + (float) v / (float) range);
-        ZvH.changeCoins(e.getPlayer(), v * v, "fishing");
+        Rewards.changeCoins(e.getPlayer(), v * v, "fishing");
       } else
       {
         e.getPlayer().sendActionBar(Component.text("Nothing..."));

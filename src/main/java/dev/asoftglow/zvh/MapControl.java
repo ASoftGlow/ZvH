@@ -174,7 +174,7 @@ public abstract class MapControl
     if (current_feature.name == null)
       current_feature = null;
     else
-      ZvH.singleton.getLogger().info("Feature: " + current_feature.name);
+      Logger.Get().info("Feature: " + current_feature.name);
   }
 
   public static void setFeature(int index)
@@ -318,7 +318,7 @@ public abstract class MapControl
           clipboard.close();
         } catch (IOException e)
         {
-          ZvH.singleton.getLogger().log(Level.SEVERE, "Failed to load schematic");
+          Logger.Get().log(Level.SEVERE, "Failed to load schematic");
           e.printStackTrace();
         }
         break;
@@ -360,15 +360,15 @@ public abstract class MapControl
           ZvH.editSession.replaceBlocks(reg, orange_filter, bridge_p2);
         } catch (IOException e)
         {
-          ZvH.singleton.getLogger().log(Level.SEVERE, "Failed to load schematic");
+          Logger.Get().log(Level.SEVERE, "Failed to load schematic");
           e.printStackTrace();
         }
         break;
 
       case "Grid":
         final int size = 7;
-        final var cb = new CuboidRegion(BlockVector3.at(b.x1 + 1, b.y + b.h - 10 - 1, b.z1 + 1),
-            BlockVector3.at(b.x2 - 1, b.y + b.h - 10 - 1, b.z2 - 1));
+        final var cb = new CuboidRegion(BlockVector3.at(b.x1 + 1, b.y + b.h - 11 - 1, b.z1 + 1),
+            BlockVector3.at(b.x2 - 1, b.y + b.h - 11 - 1, b.z2 - 1));
         cb.forEach(block -> {
           if ((block.getX() % size == 0) || (block.getZ() % size == 0))
           {

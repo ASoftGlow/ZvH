@@ -1,20 +1,15 @@
 package dev.asoftglow.zvh;
 
-import java.util.ArrayList;
-
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
+import org.bukkit.advancement.Advancement;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
-import org.bukkit.scoreboard.Objective;
-import org.bukkit.scoreboard.Score;
 import org.bukkit.scoreboard.Team;
 
 import com.sk89q.worldedit.EditSession;
@@ -24,14 +19,13 @@ import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import dev.asoftglow.zvh.commands.ClassSelectionMenu;
 import dev.asoftglow.zvh.commands.MapModifierMenu;
 import dev.asoftglow.zvh.commands.MusicCommands;
-import dev.asoftglow.zvh.commands.ZvHCommands;
+import dev.asoftglow.zvh.commands.SpeciesClassCommands;
 import dev.asoftglow.zvh.util.Util;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import xyz.janboerman.guilib.GuiLibrary;
@@ -42,12 +36,12 @@ public class ZvH extends JavaPlugin
   private GuiListener guiListener;
   public static Team zombiesTeam, humansTeam, waitersTeam;
   public static Location worldSpawnLocation;
-  public static Objective coins, zombies_killed, humans_killed, xp, lvl;
   public static ZvH singleton;
   public static EditSession editSession;
   public static World world;
   public static TextDisplay lvlLeaderboard, coinLeaderboard;
-  public static final boolean isDev = false;
+  public static Advancement first_blood, first_brains, revival;
+  public static final boolean isDev = true;
   /**
    * Not thread safe!
    */
@@ -73,18 +67,17 @@ public class ZvH extends JavaPlugin
   public void onEnable()
   {
     singleton = this;
+    Logger.Set(getLogger());
     if (isDev)
-      getLogger().info("\n\ndev mode enabled\n");
+      Logger.Get().info("\n\ndev mode enabled\n");
 
     var ms = Bukkit.getScoreboardManager().getMainScoreboard();
     zombiesTeam = ms.getTeam("zombies");
     humansTeam = ms.getTeam("humans");
     waitersTeam = ms.getTeam("waiters");
-    coins = ms.getObjective("coins");
-    xp = ms.getObjective("xp");
-    zombies_killed = ms.getObjective("zombies_killed");
-    humans_killed = ms.getObjective("humans_killed");
-    lvl = ms.getObjective("lvl");
+    first_brains = Bukkit.getAdvancement(NamespacedKey.fromString("zvh:first_brains"));
+    first_blood = Bukkit.getAdvancement(NamespacedKey.fromString("zvh:first_blood"));
+    first_blood = Bukkit.getAdvancement(NamespacedKey.fromString("zvh:revival"));
 
     world = getServer().getWorlds().get(0);
     worldSpawnLocation = world.getSpawnLocation();
@@ -92,15 +85,16 @@ public class ZvH extends JavaPlugin
     editSession.disableHistory();
 
     Game.clean();
+    // wait until server starts ticking
     Bukkit.getScheduler().runTaskLater(this, () -> {
-      // hope the server is fully loaded by now
       lvlLeaderboard = Util.findEntity("LevelLeaderboard", TextDisplay.class, world);
       coinLeaderboard = Util.findEntity("CoinLeaderboard", TextDisplay.class, world);
       updateLeaderboards();
     }, 10);
 
     Moderation.setConfigFile(getDataFolder().toPath().resolve("muted.json").toFile());
-    ZClassManager.init(getDataFolder().toPath().resolve("classes"), getLogger());
+    SpeciesClassManager.init(getDataFolder().toPath().resolve("classes"));
+
     if (!isDev)
     {
       DiscordBot.login(getConfig().getString("discord.bot-token"));
@@ -113,34 +107,20 @@ public class ZvH extends JavaPlugin
       });
     } else
     {
-      // Database.login(getConfig().getString("database.url"),
-      // getConfig().getString("database.username"),
-      // getConfig().getString("database.password"));
+      Database.login(getConfig().getString("database.url"), getConfig().getString("database.name"),
+          getConfig().getString("database.username"), getConfig().getString("database.password"));
     }
-
-    ZClassManager.registerZClass("Zombie", Material.ZOMBIE_HEAD, 0);
-    ZClassManager.registerZClass("Baby_Zombie", Material.CARROT, 4,
-        new PotionEffect(PotionEffectType.SPEED, -1, 0, false, false, false),
-        new PotionEffect(PotionEffectType.FAST_DIGGING, -1, 0));
-    ZClassManager.registerZClass("Skeleton", Material.SKELETON_SKULL, 5,
-        new PotionEffect(PotionEffectType.WEAKNESS, -1, 0));
-    ZClassManager.registerZClass("Slime", Material.SLIME_BALL, 6,
-        new PotionEffect(PotionEffectType.JUMP, -1, 2, false, false, false));
-    ZClassManager.registerZClass("Witch", Material.POTION, 8);
-    ZClassManager.registerZClass("Spider", Material.STRING, 10);
-    ZClassManager.registerZClass("Blaze", Material.BLAZE_POWDER, 15);
 
     GuiLibrary guiLibrary = (GuiLibrary) getServer().getPluginManager().getPlugin("GuiLib");
     guiListener = guiLibrary.getGuiListener();
 
-    var csm = new ClassSelectionMenu(this);
-    getCommand("zvh").setExecutor(new ZvHCommands());
+    getCommand("zvh").setExecutor(new SpeciesClassCommands());
     getCommand("music").setExecutor(new MusicCommands());
     final var pm = getServer().getPluginManager();
     pm.registerEvents(new JoinLeaveListener(), this);
     pm.registerEvents(new MiscListener(), this);
     pm.registerEvents(new GuardListener(), this);
-    pm.registerEvents(csm, this);
+    pm.registerEvents(new ClassSelectionMenu(this), this);
     pm.registerEvents(new Moderation(), this);
 
     Bukkit.getScheduler().runTaskTimer(this, () -> {
@@ -163,7 +143,7 @@ public class ZvH extends JavaPlugin
     if (Game.getState() != Game.State.STOPPED)
       Game.stop();
     DiscordBot.stop();
-    // Database.logout();
+    Database.logout();
   }
 
   @Override
@@ -171,6 +151,16 @@ public class ZvH extends JavaPlugin
   {
     switch (command.getLabel())
     {
+    case "start":
+      Game.start();
+      sender.sendMessage("Started.");
+      break;
+
+    case "stop":
+      Game.stop();
+      sender.sendMessage("Stopped.");
+      break;
+
     case "resetmap":
       MapControl.chooseMap(1);
       if (args.length == 1)
@@ -226,6 +216,18 @@ public class ZvH extends JavaPlugin
       sender.sendMessage(names.toString());
       return true;
 
+    case "rules":
+      sender.sendMessage("Rules:\n\n" + //
+          "- Be respectful and kind\n" + //
+          "- No NSFW content\n" + //
+          "- Stay on-topic\n" + //
+          "- Don't ask for roles or coins\n" + //
+          "- Don't spam\n" + //
+          "- Don't use cheats\n" + //
+          "- Don't farm coins/levels\n" + //
+          "- No team griefing");
+      return true;
+
     default:
       if (sender instanceof Player)
       {
@@ -278,24 +280,19 @@ public class ZvH extends JavaPlugin
           GuideBook.showTo(player);
           return true;
 
-        case "rules":
-          player.sendMessage("Rules:\n\n" + //
-              "- Be respectful and kind\n" + //
-              "- No NSFW content\n" + //
-              "- Stay on-topic\n" + //
-              "- Don't ask for roles or coins\n" + //
-              "- Don't spam\n" + //
-              "- Don't use cheats\n" + //
-              "- Don't farm coins/levels\n" + //
-              "- No team griefing");
-          return true;
-
         case "discord":
           player.sendMessage(Component.text("Click to open").clickEvent(ClickEvent.openUrl(discordLink)));
           return true;
 
         case "vanish":
           player.sendMessage("Whoosh!");
+          if (args.length == 1 && player.isOp())
+          {
+            player = Bukkit.getPlayerExact(args[0]);
+            if (player == null)
+              return false;
+          }
+          Moderation.vanish(player);
           return true;
 
         default:
@@ -307,72 +304,23 @@ public class ZvH extends JavaPlugin
     return super.onCommand(sender, command, label, args);
   }
 
-  public static void changeCoins(Player player, int amount)
-  {
-    changeCoins(player, amount, null);
-  }
-
-  public static void changeCoins(Player player, int amount, String reason)
-  {
-    if (amount == 0)
-      return;
-    var s = coins.getScore(player);
-    s.setScore(s.getScore() + amount);
-    player.sendActionBar(
-        Component.text(reason == null ? "%+d coins".formatted(amount) : "%+d coins (%s)".formatted(amount, reason))
-            .style(Style.style(NamedTextColor.GOLD)));
-    Game.updateBoard(player);
-  }
-
-  public static void changeExp(Player player, int amount)
-  {
-    var s = ZvH.xp.getScore(player);
-    var ns = s.getScore() + amount;
-    s.setScore(ns);
-    var lvl = ZvH.lvl.getScore(player);
-    player.setExp(0);
-    player.setLevel(0);
-    player.giveExp(ns, false);
-    if (lvl.getScore() != player.getLevel())
-    {
-      lvl.setScore(player.getLevel());
-    }
-  }
-
   public static void updateLeaderboards()
   {
-    updateLeaderboard(lvl, lvlLeaderboard);
-    updateLeaderboard(coins, coinLeaderboard);
+    updateLeaderboard("lvl", lvlLeaderboard);
+    updateLeaderboard("coins", coinLeaderboard);
   }
 
-  private static void updateLeaderboard(Objective objective, TextDisplay textDisplay)
+  private static void updateLeaderboard(String stat, TextDisplay textDisplay)
   {
-    // get scores
-    var scores = new ArrayList<Score>();
-    for (var entry : Bukkit.getScoreboardManager().getMainScoreboard().getEntries())
-    {
-      var score = objective.getScore(entry);
-      if (score.isScoreSet())
-      {
-        scores.add(score);
-      }
-    }
+    var players = Database.getIntStatLeaderboard(stat, 10);
+    var sb = new StringBuilder();
 
-    // sort scores
-    scores.sort((a, b) -> {
-      return b.getScore() - a.getScore();
+    players.forEach((p, n) -> {
+      sb.append("\n%-3d %s".formatted(n.intValue(), p.getName()));
     });
+    sb.deleteCharAt(0);
 
-    Component txt = Component.empty().style(Style.style(NamedTextColor.BLACK));
-    var c = Math.min(scores.size(), 10);
-    for (int i = 0; i < c; i++)
-    {
-      if (i != 0)
-        txt = txt.appendNewline();
-      txt = txt.append(Component.text("%-3d %s".formatted(scores.get(i).getScore(), scores.get(i).getEntry())));
-    }
-
-    textDisplay.text(txt);
+    textDisplay.text(Component.text(sb.toString(), NamedTextColor.BLACK));
   }
 
   public static int getPlayerCount()

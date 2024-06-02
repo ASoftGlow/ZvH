@@ -36,11 +36,11 @@ public abstract class GuideBook
           .append(Component.text("You can earn coins as a zombie or human various ways. Spend them in the ")
           .append(cmd("shop")).append(Component.text(", or on classes as a zombie")))
           .appendNewline()
-          .append(row("Zombie kill", Rewards.COIN_ZOMBIE_KILL))
-          .append(row("Human kill", Rewards.COIN_HUMAN_KILL))
-          .append(row("Human assist kill", Rewards.COIN_HUMAN_ASSIST))
-          .append(row("Zombie win", Rewards.COIN_ZOMBIE_WIN))
-          .append(row("Human win", Rewards.COIN_HUMAN_WIN))
+          .append(row("Zombie kill", Rewards.COINS_ZOMBIE_KILL))
+          .append(row("Human kill", Rewards.COINS_HUMAN_KILL))
+          .append(row("Human assist kill", Rewards.COINS_HUMAN_ASSIST))
+          .append(row("Zombie win", Rewards.COINS_ZOMBIE_WIN))
+          .append(row("Human win", Rewards.COINS_HUMAN_WIN))
         );
 
   static Component row(String name, int value)

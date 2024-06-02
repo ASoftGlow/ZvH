@@ -10,8 +10,8 @@ import org.bukkit.inventory.ItemFlag;
 import dev.asoftglow.zvh.Game;
 import dev.asoftglow.zvh.MapControl;
 import dev.asoftglow.zvh.ZvH;
-import dev.asoftglow.zvh.util.SelectButton;
-import dev.asoftglow.zvh.util.SelectionMenu;
+import dev.asoftglow.zvh.util.guilib.SelectButton;
+import dev.asoftglow.zvh.util.guilib.SelectionMenu;
 import net.kyori.adventure.text.format.NamedTextColor;
 import xyz.janboerman.guilib.api.ItemBuilder;
 

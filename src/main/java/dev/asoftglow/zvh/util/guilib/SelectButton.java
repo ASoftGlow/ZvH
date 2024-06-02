@@ -1,4 +1,4 @@
-package dev.asoftglow.zvh.util;
+package dev.asoftglow.zvh.util.guilib;
 
 import java.util.function.Predicate;
 

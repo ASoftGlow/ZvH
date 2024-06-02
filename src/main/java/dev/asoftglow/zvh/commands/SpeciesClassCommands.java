@@ -9,10 +9,9 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import dev.asoftglow.zvh.Game;
-import dev.asoftglow.zvh.ZClassManager;
+import dev.asoftglow.zvh.SpeciesClassManager;
 
-public class ZvHCommands implements CommandExecutor, TabCompleter
+public class SpeciesClassCommands implements CommandExecutor, TabCompleter
 {
   @Override
   public boolean onCommand(CommandSender sender, Command command, String label, String[] args)
@@ -28,39 +27,38 @@ public class ZvHCommands implements CommandExecutor, TabCompleter
       if (args.length < 3)
         return false;
       String name = args[3];
-      switch (args[1])
+      String species = args[1];
+      switch (species)
       {
       case "zombie":
-      case "z":
+      case "human":
         if (args.length < 4)
           return false;
 
         switch (args[2])
         {
         case "save":
-        case "s":
-          if (ZClassManager.zClasses.containsKey(name))
+          if (SpeciesClassManager.speciesHasClass(species, name))
           {
-            ZClassManager.zClasses.get(name).items = player.getInventory().getContents();
+            SpeciesClassManager.speciesGetClass(species, name).setItems(player.getInventory().getContents());
           } else
           {
             player.sendMessage("Class %s doesn't exist!".formatted(name));
             break;
           }
 
-          ZClassManager.saveZClassFrom(name, player.getInventory());
+          SpeciesClassManager.saveClassFrom(name, species, player.getInventory());
           player.sendMessage("Saved class %s.".formatted(name));
           break;
 
         case "give":
-        case "g":
-          var zClass = ZClassManager.zClasses.get(name);
-          if (zClass == null)
+          var s_class = SpeciesClassManager.speciesGetClass(species, name);
+          if (s_class == null)
           {
             player.sendMessage("Class %s doesn't exist!".formatted(name));
             break;
           }
-          zClass.giveTo(player);
+          s_class.giveTo(player);
           player.sendMessage("Gave class %s.".formatted(name));
           break;
 
@@ -69,23 +67,9 @@ public class ZvHCommands implements CommandExecutor, TabCompleter
         }
         break;
 
-      case "human":
-      case "h":
-        break;
-
       default:
         return false;
       }
-      break;
-
-    case "start":
-      Game.start();
-      player.sendMessage("Started.");
-      break;
-
-    case "stop":
-      Game.stop();
-      player.sendMessage("Stopped.");
       break;
 
     default:
@@ -109,25 +93,18 @@ public class ZvHCommands implements CommandExecutor, TabCompleter
       {
         return List.of("zombie", "human");
       }
-      switch (args[1])
+      var species = args[1];
+      switch (species)
       {
       case "zombie":
-      case "z":
+      case "human":
         if (args.length == 3)
         {
           return List.of("save", "give", "delete");
         }
         if (args.length == 4)
         {
-          return List.copyOf(ZClassManager.zClasses.keySet());
-        }
-        break;
-
-      case "human":
-      case "h":
-        if (args.length == 3)
-        {
-          return List.of("save", "reset");
+          return SpeciesClassManager.speciesGetClassNames(species);
         }
         break;
 
