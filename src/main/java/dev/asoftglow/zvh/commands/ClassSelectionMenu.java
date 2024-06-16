@@ -1,91 +1,102 @@
 package dev.asoftglow.zvh.commands;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.function.BiPredicate;
 
 import org.bukkit.GameMode;
-import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
-import xyz.janboerman.guilib.api.ItemBuilder;
+import xyz.janboerman.guilib.api.menu.ItemButton;
 import xyz.janboerman.guilib.api.menu.MenuHolder;
 import dev.asoftglow.zvh.CustomItems;
 import dev.asoftglow.zvh.Database;
 import dev.asoftglow.zvh.Rewards;
 import dev.asoftglow.zvh.ZombieClass;
 import dev.asoftglow.zvh.SpeciesClassManager;
+import dev.asoftglow.zvh.Styles;
 import dev.asoftglow.zvh.ZvH;
 import dev.asoftglow.zvh.util.Util;
-import dev.asoftglow.zvh.util.guilib.SelectButton;
+import dev.asoftglow.zvh.util.guilib.CloseButton;
+import dev.asoftglow.zvh.util.guilib.PredicateButton;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 
-public class ClassSelectionMenu implements Listener
+public class ClassSelectionMenu extends MenuHolder<ZvH>
 {
-  private static MenuHolder<ZvH> menu;
+  private static final Set<PotionEffect> idle_buffs = Set.of(
+      new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, -1, 255, false, false, false),
+      new PotionEffect(PotionEffectType.WEAKNESS, -1, 255, false, false, false),
+      new PotionEffect(PotionEffectType.FIRE_RESISTANCE, -1, 255, false, false, false));
   private static Set<Player> shouldLeave = new HashSet<>();
 
-  private boolean SelectionHandler(Player player, ZombieClass zClass)
-  {
-    Database.getIntStat(player, "coins", coins -> {
+  private List<String> classes = null;
+  private int coins = 0;
 
-      player.clearActivePotionEffects();
-      Util.playSound(player, Sound.UI_BUTTON_CLICK, 1, 1);
-      if (player.getGameMode() == GameMode.CREATIVE)
-      {
-        zClass.giveTo(player);
-        player.getInventory().setItem(8, CustomItems.shop_open);
-        shouldLeave.remove(player);
-        player.closeInventory();
-
-      } else if (coins.isPresent() && coins.getAsInt() >= zClass.price)
-      {
-        player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 5));
-        Rewards.changeCoins(player, -zClass.price, "shopping");
-        zClass.giveTo(player);
-        player.getInventory().setItem(8, CustomItems.shop_open);
-        shouldLeave.remove(player);
-        player.closeInventory();
-      }
-    });
-    return false;
-  }
-
-  public ClassSelectionMenu(ZvH zvh)
-  {
-    menu = new MenuHolder<>(zvh, 9, "Choose a class:");
-
-    menu.setButton(8, new SelectButton<ZvH>((new ItemBuilder(Material.BARRIER)).name("§r§6Leave").build(), e -> {
-      e.getWhoClicked().clearActivePotionEffects();
-      Util.playSound((Player) e.getWhoClicked(), Sound.UI_BUTTON_CLICK, 1, 1);
-      return true;
-    }));
-
-    int i = 0;
-    for (var c : SpeciesClassManager.speciesGetClassNames("zombie"))
+  private static final BiPredicate<ClassSelectionMenu, InventoryClickEvent> bp = (h, e) -> {
+    var player = (Player) e.getWhoClicked();
+    var c = h.classes.get(e.getSlot());
+    var zClass = (ZombieClass) SpeciesClassManager.speciesGetClass("zombie", c);
+    if (h.coins >= zClass.price)
     {
-      var zClass = (ZombieClass) SpeciesClassManager.speciesGetClass("zombie", c);
-      var item = new ItemBuilder(zClass.icon).name("§r§f" + zClass.name.replace('_', ' '));
-      if (zClass.price > 0)
-        item = item.lore("Costs " + zClass.price);
-      menu.setButton(i++,
-          new SelectButton<ZvH>(item.build(), e -> SelectionHandler((Player) e.getWhoClicked(), zClass)));
+      if (player.getGameMode() == GameMode.SURVIVAL)
+      {
+        Rewards.changeCoins(player, -zClass.price, "shopping");
+      }
+      player.clearActivePotionEffects();
+      player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 5));
+      zClass.giveTo(player);
+      player.getInventory().setItem(8, CustomItems.shop_open);
+      shouldLeave.remove(player);
+      Util.playSound(player, Sound.UI_BUTTON_CLICK, 0.9f, 1f);
+      return false;
     }
+
+    Util.playSound(player, Sound.ENTITY_VILLAGER_NO, 0.9f, 1f);
+    return true;
+  };
+
+  private ClassSelectionMenu(Player player)
+  {
+    super(ZvH.singleton, 9, "Choose a zombie class:");
+
+    coins = Database.getCachedIntStat(player, "coins").orElse(0);
+
+    classes = SpeciesClassManager.speciesGetClassNames("zombie");
+    for (int i = 0; i < classes.size(); i++)
+    {
+      var zClass = (ZombieClass) SpeciesClassManager.speciesGetClass("zombie", classes.get(i));
+      var item = new ItemStack(zClass.icon);
+      var meta = item.getItemMeta();
+      boolean isAffordable = zClass.price <= coins;
+
+      meta.displayName(Component.text(zClass.name.replace('_', ' '),
+          isAffordable ? Styles.affordable_style : Styles.too_expensive_style));
+      Util.addLore(meta, Component.text("Costs ", NamedTextColor.GRAY)
+          .append(Component.text(zClass.price, NamedTextColor.GOLD)).decoration(TextDecoration.ITALIC, false));
+      item.setItemMeta(meta);
+
+      setButton(i, new PredicateButton<>(new ItemButton<>(item), bp));
+    }
+    setButton(8, new CloseButton<>());
+
+    player.openInventory(getInventory());
   }
 
   public static void showTo(Player player)
   {
     shouldLeave.add(player);
-    player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, -1, 255, false, false, false));
-    player.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, -1, 255, false, false, false));
-    player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, -1, 255, false, false, false));
-    player.openInventory(menu.getInventory());
+    player.addPotionEffects(idle_buffs);
+
+    new ClassSelectionMenu(player);
   }
 
   public static boolean hasMenuOpen(Player player)
@@ -98,22 +109,19 @@ public class ClassSelectionMenu implements Listener
     shouldLeave.clear();
   }
 
-  @EventHandler
+  @Override
   public void onClose(InventoryCloseEvent e)
   {
-    if (e.getPlayer() instanceof Player && e.getView().getOriginalTitle().equals("Choose a class:"))
+    var player = (Player) e.getPlayer();
+    if (shouldLeave.remove(player))
     {
-      var player = (Player) e.getPlayer();
-      if (shouldLeave.remove(player))
-      {
-        player.sendMessage(Component.text("You closed the menu with picked a class, so you were given the default one.")
-            .color(NamedTextColor.RED));
-        player.clearActivePotionEffects();
-        player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 5));
-        // give first
-        SpeciesClassManager.speciesGetClass("zombie", "Zombie").giveTo(player);
-        player.getInventory().setItem(8, CustomItems.shop_open);
-      }
+      player.clearActivePotionEffects();
+      player.sendMessage(Component.text("You closed the menu without picking a class, so you were given the default one.")
+          .color(NamedTextColor.RED));
+      player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 20 * 2, 2));
+      // give first
+      SpeciesClassManager.speciesGetClass("zombie", "Zombie").giveTo(player);
+      player.getInventory().setItem(8, CustomItems.shop_open);
     }
   }
 }

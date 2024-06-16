@@ -43,7 +43,7 @@ public class MiscListener implements Listener
     var player = e.getPlayer();
     if (Game.isPlaying(player))
     {
-      if (ZvH.humansTeam.hasPlayer(player))
+      if (Game.humans.contains(player))
       {
         Game.leaveHumans(player);
       }
@@ -59,9 +59,6 @@ public class MiscListener implements Listener
     if (Game.isPlaying(player))
     {
       Game.handleDeath(e);
-    } else
-    {
-      ZvH.waitersTeam.removePlayer(player);
     }
   }
 
@@ -82,7 +79,7 @@ public class MiscListener implements Listener
     if (!(Game.isPlaying(shooter) && Game.isPlaying(victim)))
       return;
 
-    if (!(ZvH.humansTeam.hasPlayer(shooter) && ThreadLocalRandom.current().nextInt(2) == 0))
+    if (!(Game.humans.contains(shooter) && ThreadLocalRandom.current().nextInt(2) == 0))
       return;
     shooter.getInventory().addItem(new ItemStack(Material.ARROW));
   }
@@ -168,7 +165,7 @@ public class MiscListener implements Listener
         Game.leaveSpectators(player);
       } else if (e.getItem().equals(CustomItems.tracker))
       {
-        var nearest = Util.getClosestTeamMember(player, ZvH.humansTeam);
+        var nearest = Util.getClosestTeamMember(player, Game.humans);
         if (nearest == null)
         {
           Util.playSound(player, Sound.BLOCK_REDSTONE_TORCH_BURNOUT, 0.8f, 1f);
@@ -222,8 +219,8 @@ public class MiscListener implements Listener
   @EventHandler @SuppressWarnings("deprecation")
   public void onArrowPickUp(PlayerPickupArrowEvent e)
   {
-    if (ZvH.humansTeam.hasPlayer(e.getPlayer())
-        && ZvH.zombiesTeam.hasPlayer(Bukkit.getPlayer(e.getArrow().getOwnerUniqueId())))
+    if (Game.humans.contains(e.getPlayer())
+        && Game.zombies.contains(Bukkit.getPlayer(e.getArrow().getOwnerUniqueId())))
     {
       if (e.getArrow().getUniqueId().toString().charAt(0) % 2 != 0)
       {
@@ -244,6 +241,7 @@ public class MiscListener implements Listener
       final int floor = 3;
       final int range = 3;
       var v = ThreadLocalRandom.current().nextInt(range + floor + 1) - floor;
+      // max(0, random(0 to 6) - 3)^2
       if (v > 0)
       {
         Util.playSoundAllAt(e.getPlayer(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 0.5f + (float) v / (float) range);

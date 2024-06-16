@@ -26,25 +26,17 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextDecoration;
-import net.kyori.adventure.title.Title;
 
 public abstract class Game
 {
   private static final int REQUIRED_PLAYERS = ZvH.isDev ? 1 : 2;
-  private static final int SURIVAL_TIME = 60 * 5;
-  public static final Style zombie_style = Style.style(NamedTextColor.DARK_GREEN, TextDecoration.BOLD);
-  public static final Style human_style = Style.style(NamedTextColor.GOLD, TextDecoration.BOLD);
-  private static final Title zombie_spawn_title = Title.title(Component.text("Zombie", zombie_style),
-      Component.text("Kill the humans!"));
-  private static final Title human_spawn_title = Title.title(Component.text("Human", human_style),
-      Component.text("Don't get killed!"));
-  private static final Title zombies_win_title = Title.title(Component.text("Zombies", zombie_style),
-      Component.text("have won!"));
-  private static final Title humans_win_title = Title.title(Component.text("Humans", human_style),
-      Component.text("have won!"));
+  private static final int SURVIVAL_TIME = ZvH.isDev ? 30 : 60 * 5;
+  private static int current_survival_time;
 
-  private static Set<Player> last_zombies = new HashSet<>();
-  public static Set<Player> playing = new HashSet<>();
+  private static final Set<Player> last_zombies = new HashSet<>();
+  public static final Set<Player> playing = new HashSet<>();
+  public static final Set<Player> zombies = new HashSet<>();
+  public static final Set<Player> humans = new HashSet<>();
   private static Game.State state = Game.State.STOPPED;
   private static int game_time;
   private static Set<UUID> temp_blocked = new HashSet<>();
@@ -188,6 +180,7 @@ public abstract class Game
     }
     playing.add(player);
     player.setGameMode(GameMode.SURVIVAL);
+    player.setFallDistance(0);
     player.setHealth(player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue());
     player.getInventory().clear();
     player.setItemOnCursor(null);
@@ -203,35 +196,37 @@ public abstract class Game
   public static void joinZombies(Player player)
   {
     ZvH.zombiesTeam.addPlayer(player);
+    zombies.add(player);
     join(player);
     player.teleport(
         MapControl.getLocation(player, MapControl.current_size.zombieSpawn(), MapControl.current_size.humanSpawn()));
     ClassSelectionMenu.showTo(player);
-    player.showTitle(zombie_spawn_title);
+    player.showTitle(Styles.zombie_spawn_title);
     Util.playSound(player, Sound.ENTITY_ZOMBIE_AMBIENT, 1f, 0.8f);
   }
 
   public static void joinHumans(Player player, boolean revived)
   {
     ZvH.humansTeam.addPlayer(player);
+    humans.add(player);
     join(player);
 
-    Database.getIntStat(player, "lvl", lvl -> {
-
-      SpeciesClassManager.getHumanClass(lvl.orElse(0)).giveTo(player);
-      player.getInventory().setItem(8, CustomItems.shop_open);
-    });
+    var lvl = Database.getCachedIntStat(player, "lvl");
+    SpeciesClassManager.getHumanClass(lvl.orElse(0)).giveTo(player);
+    player.getInventory().setItem(8, CustomItems.shop_open);
+    player.getInventory().addItem(new ItemStack(Material.ARROW, 3));
 
     if (revived)
       return;
     player.teleport(
         MapControl.getLocation(player, MapControl.mapSizes[0].humanSpawn(), MapControl.mapSizes[0].zombieSpawn()));
-    player.showTitle(human_spawn_title);
+    player.showTitle(Styles.human_spawn_title);
     Util.playSound(player, Sound.ENTITY_VILLAGER_AMBIENT, 1f, 0.8f);
   }
 
   public static void reviveZombie(Player player)
   {
+    // FIXME
     player.getAdvancementProgress(ZvH.revival).awardCriteria("revival");
     Util.playSoundAllAt(player, Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 0.9f, 1.2f);
     Util.sendServerMsg(Component.text(player.getName()).decorate(TextDecoration.BOLD)
@@ -246,9 +241,10 @@ public abstract class Game
   public static void leaveHumans(Player player)
   {
     ZvH.humansTeam.removePlayer(player);
-    if (getHumansCount() == 1)
+    humans.remove(player);
+    if (humans.size() == 1)
     {
-      var last_player = getHumans().iterator().next();
+      var last_player = humans.iterator().next();
       last_player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, -1, 0));
     }
     joinZombies(player);
@@ -274,20 +270,22 @@ public abstract class Game
     {
       if (playing.size() == 0)
       {
-        ZvH.humansTeam.removePlayer(player);
-        ZvH.zombiesTeam.removePlayer(player);
+        humans.remove(player);
+        zombies.remove(player);
         stop();
-      } else if (ZvH.humansTeam.removePlayer(player))
+
+      } else if (humans.remove(player))
       {
-        if (Game.getHumansCount() == 0)
+        if (humans.size() == 0)
         {
-          Game.rewardZombies();
-          Game.stop();
-          Game.announceZombiesWin();
+          rewardZombies();
+          stop();
+          announceZombiesWin();
         }
-      } else if (ZvH.zombiesTeam.removePlayer(player))
+      } else if (zombies.remove(player))
       {
-        if (getZombiesCount() == 0)
+        ZvH.zombiesTeam.removePlayer(player);
+        if (zombies.size() == 0)
         {
           // one human
           if (playing.size() == 1)
@@ -316,10 +314,10 @@ public abstract class Game
       }
     } else
     {
-      ZvH.zombiesTeam.removePlayer(player);
-      ZvH.humansTeam.removePlayer(player);
       leaveWaiters(player);
     }
+    ZvH.zombiesTeam.removePlayer(player);
+    ZvH.humansTeam.removePlayer(player);
 
     player.closeInventory();
     player.getInventory().clear();
@@ -347,14 +345,14 @@ public abstract class Game
     state = Game.State.PLAYING;
     for (var e : ZvH.waitersTeam.getEntries())
     {
-      var player = Bukkit.getPlayer(e);
+      Player player = Bukkit.getPlayer(e);
       player.sendActionBar(Component.empty());
       ZvH.waitersTeam.removePlayer(player);
       SideBoard.updateGameState(player);
       player.closeInventory();
       playing.add(player);
     }
-    game_time = SURIVAL_TIME;// + Math.min(10, playing.size()) * 15;
+    game_time = current_survival_time = SURVIVAL_TIME;// + Math.min(10, playing.size()) * 15;
 
     for (var player : pickZombies(playing))
     {
@@ -363,7 +361,7 @@ public abstract class Game
 
     for (var player : playing)
     {
-      if (!ZvH.zombiesTeam.hasPlayer(player))
+      if (!zombies.contains(player))
       {
         joinHumans(player, false);
       }
@@ -411,26 +409,34 @@ public abstract class Game
 
     final var style = Style.style(NamedTextColor.WHITE, TextDecoration.BOLD);
     final var killers = Combat.getKillers();
-    var killers_msg = Component.text("\n\n  Top killers:");
-    for (int i = 0; i < Math.min(killers.size(), 5); i++)
+    Component killers_msg;
+    if (killers.size() == 0)
     {
-      var player = Bukkit.getPlayer(killers.get(i).getKey());
-      killers_msg = killers_msg
-          .append(Component.text("\n    %-2d ".formatted(killers.get(i).getValue().intValue()), style)
-              .append(player == null ? Component.text("?") : player.displayName()));
+      killers_msg = Component.text("\n\n  There were no killers.");
+
+    } else
+    {
+      killers_msg = Component.text("\n\n  Top killers:");
+      for (int i = 0; i < Math.min(killers.size(), 5); i++)
+      {
+        var player = Bukkit.getPlayer(killers.get(i).getKey());
+        killers_msg = killers_msg
+            .append(Component.text("\n    %-2d ".formatted(killers.get(i).getValue().intValue()), style)
+                .append(player == null ? Component.text("?") : player.displayName()));
+      }
     }
 
     for (var p : playing)
     {
-      Component msg = Component.newline()
+      p.sendMessage(Component.newline()
           .append(Component.text("Game Summary\n\n", NamedTextColor.LIGHT_PURPLE, TextDecoration.UNDERLINED))
           .append(Component.text("  Your kills: ")).append(Component.text(Combat.getKills(p), style))
-          .append(killers_msg);
-      msg = msg.appendNewline();
-      p.sendMessage(msg);
+          .append(killers_msg).appendNewline());
 
       leave(p);
     }
+    zombies.clear();
+    humans.clear();
     playing.clear();
     Combat.reset();
     ClassSelectionMenu.reset();
@@ -472,6 +478,7 @@ public abstract class Game
   {
     if (--game_time < 0)
     {
+      game_time = 0;
       rewardHumans();
       stop();
       announceHumansWin();
@@ -480,7 +487,7 @@ public abstract class Game
     SideBoard.updateGameState();
     if (game_time != 0 && game_time % 60 == 0)
     {
-      Rewards.changeCoins(getHumans(), Rewards.COINS_HUMAN_ALIVE, "staying alive");
+      Rewards.changeCoins(humans, Rewards.COINS_HUMAN_ALIVE, "staying alive");
     }
   }
 
@@ -536,11 +543,16 @@ public abstract class Game
     }
   }
 
+  private static int getPlaytime()
+  {
+    return (current_survival_time - game_time) / 60;
+  }
+
   public static void announceZombiesWin()
   {
     for (var p : Bukkit.getOnlinePlayers())
     {
-      p.showTitle(zombies_win_title);
+      p.showTitle(Styles.zombies_win_title);
       Util.playSound(p, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.7f, 1f);
     }
   }
@@ -548,7 +560,8 @@ public abstract class Game
   @SuppressWarnings("unchecked")
   public static void rewardZombies()
   {
-    var infected_zombies = getZombies();
+    int playtime = getPlaytime();
+    var infected_zombies = new HashSet<>(zombies);
 
     if (last_zombies.size() > 0)
     {
@@ -568,15 +581,15 @@ public abstract class Game
       if (last_zombies.size() > 0)
       {
         // first zombies
-        Database.changeIntStats(last_zombies, Pair.of("z_wins", 1), Pair.of("play_time", game_time),
+        Database.changeIntStats(last_zombies, Pair.of("z_wins", 1), Pair.of("play_time", playtime),
             Pair.of("coins", Rewards.COINS_FIRST_ZOMBIE_WIN), Pair.of("xp", Rewards.XP_FIRST_ZOMBIE_WIN));
       }
 
-      Database.changeIntStats(infected_zombies, Pair.of("z_wins", 1), Pair.of("play_time", game_time),
+      Database.changeIntStats(infected_zombies, Pair.of("z_wins", 1), Pair.of("play_time", playtime),
           Pair.of("coins", Rewards.COINS_ZOMBIE_WIN), Pair.of("xp", Rewards.XP_ZOMBIE_WIN));
 
       // humans
-      Database.changeIntStats(getHumans(), Pair.of("h_losses", 1), Pair.of("play_time", game_time));
+      Database.changeIntStats(humans, Pair.of("h_losses", 1), Pair.of("play_time", playtime));
     });
   }
 
@@ -584,7 +597,7 @@ public abstract class Game
   {
     for (var p : Bukkit.getOnlinePlayers())
     {
-      p.showTitle(humans_win_title);
+      p.showTitle(Styles.humans_win_title);
       Util.playSound(p, Sound.BLOCK_BEACON_ACTIVATE, 1f, 1f);
     }
   }
@@ -592,8 +605,7 @@ public abstract class Game
   @SuppressWarnings("unchecked")
   public static void rewardHumans()
   {
-    var humans = getHumans();
-    var zombies = getZombies();
+    int playtime = getPlaytime();
     var last_human = humans.size() == 1 && playing.size() > 2 ? humans.iterator().next() : null;
 
     if (last_human != null)
@@ -611,37 +623,18 @@ public abstract class Game
       if (last_human != null)
       {
         // last human
-        Database.changeIntStats(humans, Pair.of("h_wins", 1), Pair.of("play_time", game_time),
+        Database.changeIntStats(last_human, Pair.of("h_wins", 1), Pair.of("play_time", playtime),
             Pair.of("coins", Rewards.COINS_LAST_HUMAN_WIN), Pair.of("xp", Rewards.XP_LAST_HUMAN_WIN));
       } else
       {
         // humans
-        Database.changeIntStats(humans, Pair.of("h_wins", 1), Pair.of("play_time", game_time));
+        Database.changeIntStats(humans, Pair.of("h_wins", 1), Pair.of("play_time", playtime),
+            Pair.of("coins", Rewards.COINS_HUMAN_WIN), Pair.of("xp", Rewards.XP_HUMAN_WIN));
       }
 
       // zombies
-      Database.changeIntStats(zombies, Pair.of("z_losses", 1), Pair.of("play_time", game_time));
+      Database.changeIntStats(zombies, Pair.of("z_losses", 1), Pair.of("play_time", playtime));
     });
-  }
-
-  public static Set<Player> getZombies()
-  {
-    return Util.getTeamPlayers(ZvH.zombiesTeam);
-  }
-
-  public static int getZombiesCount()
-  {
-    return Util.getTeamPlayersCount(ZvH.zombiesTeam);
-  }
-
-  public static Set<Player> getHumans()
-  {
-    return Util.getTeamPlayers(ZvH.humansTeam);
-  }
-
-  public static int getHumansCount()
-  {
-    return Util.getTeamPlayersCount(ZvH.humansTeam);
   }
 
   public static void handleDeath(PlayerDeathEvent e)
@@ -657,12 +650,11 @@ public abstract class Game
     Combat.handleKillRewards(player);
 
     // last human
-    if (ZvH.humansTeam.hasPlayer(player) && getHumansCount() == 1)
+    if (humans.contains(player) && humans.size() == 1)
     {
       state = Game.State.ENDING;
       final var tm = player.getServer().getServerTickManager();
       // keep player alive
-      // TODO: increment stat
       e.setCancelled(true);
       tm.setTickRate(5);
       stopGameTasks();
@@ -675,6 +667,7 @@ public abstract class Game
         p.playSound(player, e.getDeathSound(), 1f, 1f);
         p.sendMessage(e.deathMessage());
       }
+      announceZombiesWin();
       rewardZombies();
 
       Bukkit.getScheduler().runTaskLater(ZvH.singleton, () -> {
@@ -685,7 +678,6 @@ public abstract class Game
         }
         Bukkit.getScheduler().runTaskLater(ZvH.singleton, () -> {
           stop();
-          announceZombiesWin();
         }, 20 * 5);
       }, 20 * 2);
     }

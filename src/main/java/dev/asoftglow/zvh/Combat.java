@@ -31,14 +31,14 @@ public abstract class Combat
     var killer = player.getKiller();
     if (killer != null && killer != player && Game.isPlaying(killer))
     {
-      if (ZvH.humansTeam.hasPlayer(killer))
+      if (Game.humans.contains(killer))
       {
         Database.changeIntStats(killer, Pair.of("coins", Rewards.COINS_ZOMBIE_KILL),
             Pair.of("xp", Rewards.XP_ZOMBIE_KILL), Pair.of("z_kills", 1));
         Rewards.S_changeCoins(killer, Rewards.COINS_ZOMBIE_KILL, "zombie kill");
         Database.S_changeXp(killer, Rewards.XP_ZOMBIE_KILL);
 
-      } else if (ZvH.zombiesTeam.hasPlayer(killer))
+      } else if (Game.zombies.contains(killer))
       {
         Database.changeIntStats(killer, Pair.of("coins", Rewards.COINS_HUMAN_KILL),
             Pair.of("xp", Rewards.XP_HUMAN_KILL), Pair.of("h_kills", 1));
@@ -47,33 +47,34 @@ public abstract class Combat
 
         Util.playSoundAllAt(killer, Sound.ENTITY_ZOMBIE_INFECT, 0.9f, 1.2f);
 
-        if (Game.getZombiesCount() == 1)
-          return;
-
-        // FIXME
-        // Reviving
-
-        final var ceiling = 3;
-        var kills = human_kills.get(killer.getUniqueId());
-        int left = ceiling - 1;
-        if (kills == null)
+        final boolean game_ending = Game.humans.contains(player) && Game.humans.size() == 1;
+        if (Game.zombies.size() > 1 && !game_ending)
         {
-          human_kills.put(killer.getUniqueId(), Integer.valueOf(1));
-        } else
-        {
-          if (kills.intValue() >= ceiling - 1)
+          // FIXME
+          // Reviving
+
+          final var ceiling = 3;
+          var kills = human_kills.get(killer.getUniqueId());
+          int left = ceiling - 1;
+          if (kills == null)
           {
-            Game.reviveZombie(killer);
-            human_kills.remove(killer.getUniqueId());
-            return;
+            human_kills.put(killer.getUniqueId(), Integer.valueOf(1));
+          } else
+          {
+            if (kills.intValue() >= ceiling - 1)
+            {
+              Game.reviveZombie(killer);
+              human_kills.remove(killer.getUniqueId());
+              return;
+            }
+            human_kills.put(killer.getUniqueId(), Integer.valueOf(kills.intValue() + 1));
+            left--;
           }
-          human_kills.put(killer.getUniqueId(), Integer.valueOf(kills.intValue() + 1));
-          left--;
+          killer.sendMessage(Component.text("Infect ").color(NamedTextColor.AQUA)
+              .append(Component.text(left).color(NamedTextColor.WHITE).decorate(TextDecoration.BOLD)) //
+              .append(Component
+                  .text(left == 1 ? " more human to become human again." : " more humans to become human again.")));
         }
-        killer.sendMessage(Component.text("Infect ").color(NamedTextColor.AQUA)
-            .append(Component.text(left).color(NamedTextColor.WHITE).decorate(TextDecoration.BOLD)) //
-            .append(Component
-                .text(left == 1 ? " more human to become human again." : " more humans to become human again.")));
       }
 
       var r = kills.get(killer.getUniqueId());
@@ -81,11 +82,11 @@ public abstract class Combat
 
       var wasProjectile = player.getLastDamageCause().getCause().equals(DamageCause.PROJECTILE);
 
-      if (ZvH.zombiesTeam.hasPlayer(killer))
+      if (Game.zombies.contains(killer))
       {
         killer.getAdvancementProgress(ZvH.first_brains).awardCriteria("killh");
 
-      } else if (ZvH.humansTeam.hasPlayer(killer))
+      } else if (Game.humans.contains(killer))
       {
         killer.setHealth(Math.min(
             killer.getHealth() + (wasProjectile ? Rewards.HEALTH_ZOMBIE_KILL_PROJECTILE : Rewards.HEALTH_ZOMBIE_KILL),
@@ -100,9 +101,13 @@ public abstract class Combat
         assisters.remove(killer.getUniqueId());
         assist_history.remove(player.getUniqueId());
         var players = Util.getPlayers(assisters);
+
+        Rewards.S_changeCoins(players, Rewards.COINS_HUMAN_ASSIST, "human assist");
+        Database.S_changeXp(players, Rewards.XP_HUMAN_ASSIST);
+
         Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
-          Rewards.changeCoinsAndXp(players, Rewards.COINS_HUMAN_ASSIST, Rewards.XP_HUMAN_ASSIST,
-              "human assist");
+          Database.changeIntStats(players, Pair.of("coins", Rewards.COINS_HUMAN_ASSIST),
+              Pair.of("xp", Rewards.XP_HUMAN_ASSIST));
         });
       }
     }
@@ -110,7 +115,7 @@ public abstract class Combat
 
   public static void handleDamage(Player player, Player damager)
   {
-    if (ZvH.humansTeam.hasPlayer(player) && ZvH.zombiesTeam.hasPlayer(damager))
+    if (Game.humans.contains(player) && Game.zombies.contains(damager))
       addAssister(player, damager);
   }
 

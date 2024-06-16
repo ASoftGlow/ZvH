@@ -13,29 +13,29 @@ import net.kyori.adventure.text.TextComponent;
 
 public abstract class SideBoard
 {
-  private static final TextComponent board_title = Component.text().append(Component.text("Z", Game.zombie_style))
-      .append(Component.text("v")).append(Component.text("H", Game.human_style)).build();
+  private static final TextComponent board_title = Component.text().append(Component.text("Z", Styles.zombie_style))
+      .append(Component.text("v")).append(Component.text("H", Styles.human_style)).build();
 
   private static final HashMap<Player, FastBoard> boards = new HashMap<>();
 
   public static void update(FastBoard fb)
   {
-    Database.getIntStat(fb.getPlayer(), "coins", coins -> {
-      var lines = new ArrayList<Component>();
+    var coins = Database.getCachedIntStat(fb.getPlayer(), "coins");
+    var lines = new ArrayList<Component>();
 
-      lines.add(Component.empty());
-      lines.add(Game.getStateText());
-      lines.add(Component.empty());
-      lines.add(Component.text("Coins: " + (coins.isPresent() ? coins.getAsInt() : "?")));
-      lines.add(Component.empty());
+    lines.add(Component.empty());
+    lines.add(Game.getStateText());
+    lines.add(Component.empty());
+    lines.add(Component.text("Coins: " + (coins.isPresent() ? coins.getAsInt() : "?")));
+    lines.add(Component.empty());
 
-      fb.updateLines(lines);
-    });
+    fb.updateLines(lines);
   }
 
   public static void updateCoins(Player player, int coins_change)
   {
-    getBoard(player).updateLine(3, Component.text("Coins: " + coins_change));
+    var coins = Database.getCachedIntStat(player, "coins");
+    getBoard(player).updateLine(3, Component.text("Coins: " + (coins.isPresent() ? coins.getAsInt() + coins_change : "?")));
   }
 
   private static FastBoard getBoard(Player player)

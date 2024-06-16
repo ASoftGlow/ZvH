@@ -37,7 +37,7 @@ public class GuardListener implements Listener
   @EventHandler
   public void onBlockBreak(BlockBreakEvent e)
   {
-    if (e.getPlayer().getGameMode() == GameMode.SURVIVAL)
+    if (Game.isPlaying(e.getPlayer()) && e.getPlayer().getGameMode() == GameMode.SURVIVAL)
     {
       final var outside_map = !MapControl.current_size.bounds().contains(e.getBlock());
       if (outside_map || e.getBlock().getY() == MapControl.current_size.bounds().y)
@@ -136,7 +136,8 @@ public class GuardListener implements Listener
   {
     var cause_is_artifial = e.getCause() == DamageCause.VOID || e.getCause() == DamageCause.WORLD_BORDER
         || e.getCause() == DamageCause.CUSTOM;
-    if (e.getEntity() instanceof Player && !Game.isPlaying((Player) e.getEntity()) && !cause_is_artifial)
+    if (e.getEntity() instanceof Player
+        && !(Game.isPlaying((Player) e.getEntity()) && Game.getState() == Game.State.PLAYING) && !cause_is_artifial)
     {
       e.setDamage(0);
     }

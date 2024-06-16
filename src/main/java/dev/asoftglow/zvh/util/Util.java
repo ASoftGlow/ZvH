@@ -54,7 +54,7 @@ public abstract class Util
 
   public static void playSound(HumanEntity player, org.bukkit.Sound sound, float volume, float pitch)
   {
-    player.playSound(Sound.sound(sound, Sound.Source.MASTER, volume, pitch), player);
+    player.playSound(Sound.sound(sound, Sound.Source.MASTER, volume, pitch), Sound.Emitter.self());
   }
 
   public static void playSound(HumanEntity player, org.bukkit.Sound sound)
@@ -127,16 +127,12 @@ public abstract class Util
     return list.get(ThreadLocalRandom.current().nextInt(list.size()));
   }
 
-  public static Player getClosestTeamMember(Player player, Team team)
+  public static Player getClosestTeamMember(Player player, Set<Player> team)
   {
     Player result = null;
     double lastDistance = Double.MAX_VALUE;
-    for (var e : team.getEntries())
+    for (var p : team)
     {
-      var p = Bukkit.getPlayerExact(e);
-      if (p == null || p == player)
-        continue;
-
       double distance = player.getLocation().distanceSquared(p.getLocation());
       if (distance < lastDistance)
       {
@@ -159,17 +155,6 @@ public abstract class Util
     {
       itemMeta.lore(List.of(lore));
     }
-  }
-
-  public static String[] getUUIDs(Collection<Player> players)
-  {
-    var UUIDs = new String[players.size()];
-    int i = 0;
-    for (var p : players)
-    {
-      UUIDs[i++] = p.getUniqueId().toString();
-    }
-    return UUIDs;
   }
 
   public static Collection<Player> getPlayers(Collection<UUID> uuids)

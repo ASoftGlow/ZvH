@@ -21,6 +21,7 @@ import dev.asoftglow.zvh.commands.MapModifierMenu;
 import dev.asoftglow.zvh.commands.MusicCommands;
 import dev.asoftglow.zvh.commands.SpeciesClassCommands;
 import dev.asoftglow.zvh.util.Util;
+import net.kyori.adventure.inventory.Book;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -41,7 +42,7 @@ public class ZvH extends JavaPlugin
   public static World world;
   public static TextDisplay lvlLeaderboard, coinLeaderboard;
   public static Advancement first_blood, first_brains, revival;
-  public static final boolean isDev = true;
+  public static final boolean isDev = false;
   /**
    * Not thread safe!
    */
@@ -77,7 +78,7 @@ public class ZvH extends JavaPlugin
     waitersTeam = ms.getTeam("waiters");
     first_brains = Bukkit.getAdvancement(NamespacedKey.fromString("zvh:first_brains"));
     first_blood = Bukkit.getAdvancement(NamespacedKey.fromString("zvh:first_blood"));
-    first_blood = Bukkit.getAdvancement(NamespacedKey.fromString("zvh:revival"));
+    revival = Bukkit.getAdvancement(NamespacedKey.fromString("zvh:revival"));
 
     world = getServer().getWorlds().get(0);
     worldSpawnLocation = world.getSpawnLocation();
@@ -105,11 +106,13 @@ public class ZvH extends JavaPlugin
               .append(Component.text(message)));
         }
       });
-    } else
-    {
-      Database.login(getConfig().getString("database.url"), getConfig().getString("database.name"),
-          getConfig().getString("database.username"), getConfig().getString("database.password"));
     }
+    Database.login( //
+        getConfig().getString("database.url"), //
+        getConfig().getString("database.name"), //
+        getConfig().getString("database.username"), //
+        getConfig().getString("database.password") //
+    );
 
     GuiLibrary guiLibrary = (GuiLibrary) getServer().getPluginManager().getPlugin("GuiLib");
     guiListener = guiLibrary.getGuiListener();
@@ -120,7 +123,6 @@ public class ZvH extends JavaPlugin
     pm.registerEvents(new JoinLeaveListener(), this);
     pm.registerEvents(new MiscListener(), this);
     pm.registerEvents(new GuardListener(), this);
-    pm.registerEvents(new ClassSelectionMenu(this), this);
     pm.registerEvents(new Moderation(), this);
 
     Bukkit.getScheduler().runTaskTimer(this, () -> {
@@ -281,7 +283,7 @@ public class ZvH extends JavaPlugin
           return true;
 
         case "discord":
-          player.sendMessage(Component.text("Click to open").clickEvent(ClickEvent.openUrl(discordLink)));
+          player.sendMessage(Component.text("Click to visit").clickEvent(ClickEvent.openUrl(discordLink)));
           return true;
 
         case "vanish":
@@ -293,6 +295,28 @@ public class ZvH extends JavaPlugin
               return false;
           }
           Moderation.vanish(player);
+          return true;
+
+        case "stats":
+          var target = player;
+          if (args.length == 1)
+          {
+            target = Bukkit.getPlayerExact(args[0]);
+            if (target == null)
+              return false;
+          }
+          final var pl = player;
+          final var tar = target;
+          Database.fetchPlayerStats(target, stats -> {
+            Component page = Component.empty()
+                .append(Component.text(tar.getName() + "'s Stats\n").decorate(TextDecoration.UNDERLINED));
+            for (var p : stats.entrySet())
+            {
+              page = page.append(Component.text("\n" + p.getKey(), NamedTextColor.GRAY))
+                  .append(Component.text(": " + p.getValue()));
+            }
+            pl.openBook(Book.book(Component.text("Stats"), Component.text("ASoftGlow"), page));
+          });
           return true;
 
         default:
@@ -312,15 +336,16 @@ public class ZvH extends JavaPlugin
 
   private static void updateLeaderboard(String stat, TextDisplay textDisplay)
   {
-    var players = Database.getIntStatLeaderboard(stat, 10);
-    var sb = new StringBuilder();
+    Database.getIntStatLeaderboard(stat, 10, players -> {
+      var sb = new StringBuilder();
 
-    players.forEach((p, n) -> {
-      sb.append("\n%-3d %s".formatted(n.intValue(), p.getName()));
+      players.forEach((p, n) -> {
+        sb.append("\n%-3d %s".formatted(n.intValue(), p.getName()));
+      });
+      sb.deleteCharAt(0);
+
+      textDisplay.text(Component.text(sb.toString(), NamedTextColor.BLACK));
     });
-    sb.deleteCharAt(0);
-
-    textDisplay.text(Component.text(sb.toString(), NamedTextColor.BLACK));
   }
 
   public static int getPlayerCount()

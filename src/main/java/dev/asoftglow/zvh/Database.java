@@ -6,6 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.UUID;
@@ -16,8 +17,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.OfflinePlayer;
-
-import dev.asoftglow.zvh.util.Util;
 
 public abstract class Database
 {
@@ -55,24 +54,6 @@ public abstract class Database
     {
       Logger.Get().warning("Failed to get driver");
       e.printStackTrace();
-    }
-  }
-
-  public static void addPlayer(Player player)
-  {
-    try (var stmt = con.prepareStatement("INSERT INTO PlayerStats(uuid, coins) VALUES(?, ?)"))
-    {
-      setupPreparedStatement(stmt);
-
-      stmt.setString(1, player.getUniqueId().toString());
-      stmt.setInt(2, Rewards.COINS_JOIN);
-      stmt.executeUpdate();
-
-      Logger.Get().info("Added " + player.getName() + " to the db");
-
-    } catch (SQLException e)
-    {
-      handleSQLException(e);
     }
   }
 
@@ -114,34 +95,63 @@ public abstract class Database
 
   private static void setupPreparedStatement(PreparedStatement statement) throws SQLException
   {
-    if (ZvH.isDev)
+    if (ZvH.isDev || true)
     {
       Logger.Get().info("> Accessing db: " + statement.toString());
     }
   }
 
-  public static Map<OfflinePlayer, Integer> getIntStatLeaderboard(String stat, int limit)
+  public static void addPlayer(Player player)
   {
-    try (var stmt = con
-        .prepareStatement("SELECT uuid, " + stat + " FROM PlayerStats ORDER BY " + stat + " DESC LIMIT " + limit))
+    try (var stmt = con.prepareStatement("INSERT INTO PlayerStats(uuid, coins) VALUES(?, ?)"))
     {
       setupPreparedStatement(stmt);
 
-      var players = new HashMap<OfflinePlayer, Integer>();
-      var result = stmt.executeQuery();
+      stmt.setString(1, player.getUniqueId().toString());
+      stmt.setInt(2, Rewards.COINS_JOIN);
+      stmt.executeUpdate();
 
-      while (result.next())
-      {
-        var player = Bukkit.getOfflinePlayer(UUID.fromString(result.getString("uuid")));
-        players.put(player, result.getInt(2));
-      }
-      return players;
+      Logger.Get().info("Added " + player.getName() + " to the db");
 
     } catch (SQLException e)
     {
       handleSQLException(e);
-      return null;
     }
+  }
+
+  public static void getIntStatLeaderboard(String stat, int limit, Consumer<Map<OfflinePlayer, Integer>> callback)
+  {
+    Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
+      try (var stmt = con
+          .prepareStatement("SELECT uuid, " + stat + " FROM PlayerStats ORDER BY " + stat + " DESC LIMIT " + limit))
+      {
+        setupPreparedStatement(stmt);
+
+        var result = stmt.executeQuery();
+
+        Bukkit.getScheduler().runTask(ZvH.singleton, () -> {
+          var players = new LinkedHashMap<OfflinePlayer, Integer>(limit);
+          try
+          {
+            while (result.next())
+            {
+              var player = Bukkit.getOfflinePlayer(UUID.fromString(result.getString("uuid")));
+              players.put(player, result.getInt(2));
+            }
+          } catch (SQLException e)
+          {
+            handleSQLException(e);
+            callback.accept(null);
+          }
+          callback.accept(players);
+        });
+
+      } catch (SQLException e)
+      {
+        handleSQLException(e);
+        Bukkit.getScheduler().runTask(ZvH.singleton, () -> callback.accept(null));
+      }
+    });
   }
 
   public static void getIntStat(Player player, String stat, Consumer<OptionalInt> callback)
@@ -149,18 +159,17 @@ public abstract class Database
     getIntStat(player, stat, callback, AsyncTarget.MainToMain);
   }
 
-  public static void getIntStat(Player player, String stat, Consumer<OptionalInt> callback, AsyncTarget target)
+  public static OptionalInt getCachedIntStat(Player player, String stat)
   {
     var cached_stat = caches.get(stat);
-    if (cached_stat != null)
-    {
-      var cached_value = cached_stat.get(player);
-      if (cached_value != null)
-      {
-        callback.accept(OptionalInt.of(cached_value.intValue()));
-        return;
-      }
-    }
+    if (cached_stat == null)
+      return OptionalInt.empty();
+
+    return OptionalInt.of(cached_stat.get(player).intValue());
+  }
+
+  public static void getIntStat(Player player, String stat, Consumer<OptionalInt> callback, AsyncTarget target)
+  {
 
     switch (target)
     {
@@ -208,54 +217,12 @@ public abstract class Database
     }
   }
 
-  // public static int[] getIntStats(Player player, String... stats)
-  // {
-  // var values = new int[stats.length];
-
-  // for (int i = 0; i < values.length; i++)
-  // {
-  // var cached_stat = caches.get(stats[i]);
-  // if (cached_stat != null)
-  // {
-  // var cached_value = cached_stat.get(player);
-  // if (cached_value != null)
-  // {
-  // values[i] = cached_value.intValue();
-  // }
-  // }
-  // }
-
-  // try (var stmt = con.prepareStatement("SELECT " + stats + " FROM PlayerStats
-  // WHERE uuid = ?"))
-  // {
-  // setupPreparedStatement(stmt);
-
-  // stmt.setString(1, player.getUniqueId().toString());
-
-  // var result = stmt.executeQuery();
-  // if (result.next())
-  // {
-  // return OptionalInt.of(result.getInt(1));
-  // }
-  // return null;
-
-  // } catch (SQLException e)
-  // {
-  // handleSQLException(e);
-  // return null;
-  // }
-  // }
-
   public static void changeIntStat(Player player, String stat, int amount)
   {
     var cached_stat = caches.get(stat);
     if (cached_stat != null)
     {
-      var cached_value = cached_stat.get(player);
-      if (cached_value != null)
-      {
-        cached_value.add(amount);
-      }
+      cached_stat.get(player).add(amount);
     }
 
     try (var stmt = con.prepareStatement("UPDATE PlayerStats SET " + stat + " = " + stat + " + ? WHERE uuid = ?"))
@@ -277,112 +244,124 @@ public abstract class Database
     var cached_stat = caches.get(stat);
     if (cached_stat != null)
     {
-      var cached_value = cached_stat.get(player);
-      if (cached_value != null)
+      for (var p : players)
       {
-        cached_value.add(amount);
+        cached_stat.get(p).add(amount);
       }
     }
 
-    try (var stmt = con.prepareStatement("UPDATE PlayerStats SET " + stat + " = " + stat + " + ? WHERE uuid = ?"))
-    {
-      setupPreparedStatement(stmt);
+    Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
+      try (var stmt = con.prepareStatement("UPDATE PlayerStats SET " + stat + " = " + stat + " + ? WHERE uuid = ?"))
+      {
+        setupPreparedStatement(stmt);
 
-      stmt.setArray(2, con.createArrayOf("VARCHAR", Util.getUUIDs(players)));
-      stmt.setInt(1, amount);
-      stmt.executeUpdate();
+        for (var p : players)
+        {
+          stmt.setString(2, p.getUniqueId().toString());
+          stmt.setInt(1, amount);
+          stmt.addBatch();
+        }
+        stmt.executeBatch();
 
-    } catch (SQLException e)
-    {
-      handleSQLException(e, players);
-    }
+      } catch (SQLException e)
+      {
+        handleSQLException(e, players);
+      }
+    });
   }
 
   public static void S_changeXp(Player player, int amount)
   {
-    getIntStat(player, "xp", xp -> {
-      if (!xp.isPresent())
-        return;
-      int old_xp = xp.getAsInt();
+    var xp = getCachedIntStat(player, "xp");
+    if (!xp.isPresent())
+      return;
+    int old_xp = xp.getAsInt();
 
-      getIntStat(player, "lvl", lvl -> {
-        if (!lvl.isPresent())
-          return;
+    var lvl = getCachedIntStat(player, "lvl");
+    if (!lvl.isPresent())
+      return;
 
-        int old_lvl = lvl.getAsInt();
-        int new_xp = old_xp + amount;
-        int new_lvl = Rewards.calcLvl(new_xp);
+    int old_lvl = lvl.getAsInt();
+    int new_xp = old_xp + amount;
+    int new_lvl = Rewards.calcLvl(new_xp);
 
-        if (old_lvl < new_lvl)
+    caches.get("xp").get(player).setValue(new_xp);
+    Rewards.displayExpBar(player, new_lvl, new_xp);
+
+    if (old_lvl < new_lvl)
+    {
+      caches.get("lvl").get(player).setValue(new_lvl);
+      Rewards.handleLvlUp(player, old_lvl, new_lvl);
+
+      Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
+        try (var stmt = con.prepareStatement("UPDATE PlayerStats SET lvl = ? WHERE uuid = ?"))
         {
-          try (var stmt = con.prepareStatement("UPDATE PlayerStats SET lvl = ? WHERE uuid = ?"))
-          {
-            setupPreparedStatement(stmt);
+          setupPreparedStatement(stmt);
 
-            stmt.setString(2, player.getUniqueId().toString());
-            stmt.setInt(1, new_lvl);
-            stmt.executeUpdate();
+          stmt.setString(2, player.getUniqueId().toString());
+          stmt.setInt(1, new_lvl);
+          stmt.executeUpdate();
 
-          } catch (SQLException e)
-          {
-            handleSQLException(e, player);
-          }
+        } catch (SQLException e)
+        {
+          handleSQLException(e, player);
         }
-        Rewards.displayExpBar(player, new_lvl, new_xp);
-
-      }, AsyncTarget.AsyncToMain);
-    }, AsyncTarget.MainToAsync);
+      });
+    }
   }
 
   public static void S_changeXp(Collection<Player> players, int amount)
   {
-    getIntStat(players, "xp", xp -> {
+    var to_update = new HashMap<Player, Integer>();
+
+    for (var p : players)
+    {
+      var xp = getCachedIntStat(p, "xp");
       if (!xp.isPresent())
-        return;
+        continue;
       int old_xp = xp.getAsInt();
 
-      getIntStat(player, "lvl", lvl -> {
-        if (!lvl.isPresent())
-          return;
+      var lvl = getCachedIntStat(p, "lvl");
+      if (!lvl.isPresent())
+        return;
+      int old_lvl = lvl.getAsInt();
 
-        int old_lvl = lvl.getAsInt();
-        int new_xp = old_xp + amount;
-        int new_lvl = Rewards.calcLvl(new_xp);
+      int new_xp = old_xp + amount;
+      int new_lvl = Rewards.calcLvl(new_xp);
 
-        if (old_lvl < new_lvl)
-        {
-          try (var stmt = con.prepareStatement("UPDATE PlayerStats SET lvl = ? WHERE uuid = ?"))
-          {
-            setupPreparedStatement(stmt);
+      caches.get("xp").get(p).setValue(new_xp);
+      Rewards.displayExpBar(p, new_lvl, new_xp);
 
-            stmt.setString(2, player.getUniqueId().toString());
-            stmt.setInt(1, new_lvl);
-            stmt.executeUpdate();
+      if (old_lvl < new_lvl)
+      {
+        caches.get("lvl").get(p).setValue(new_lvl);
+        to_update.put(p, Integer.valueOf(new_lvl));
+        Rewards.handleLvlUp(p, old_lvl, new_lvl);
+      }
 
-          } catch (SQLException e)
-          {
-            handleSQLException(e, players);
-          }
-        }
-        Rewards.displayExpBar(player, new_lvl, new_xp);
-
-      }, AsyncTarget.AsyncToMain);
-    }, AsyncTarget.MainToAsync);
-  }
-
-  public static void addIntStat(Collection<Player> players, String stat)
-  {
-    try (var stmt = con.prepareStatement("UPDATE PlayerStats SET " + stat + " = " + stat + " + 1 WHERE uuid IN ?"))
-    {
-      setupPreparedStatement(stmt);
-
-      stmt.setArray(2, con.createArrayOf("VARCHAR", Util.getUUIDs(players)));
-      stmt.executeUpdate();
-
-    } catch (SQLException e)
-    {
-      handleSQLException(e, players);
+      if (to_update.size() == 0)
+        return;
     }
+
+    Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
+      try (var stmt = con.prepareStatement("UPDATE PlayerStats SET lvl = ? WHERE uuid = ?"))
+      {
+        setupPreparedStatement(stmt);
+
+        for (var e : to_update.entrySet())
+        {
+          stmt.setString(2, e.getKey().getUniqueId().toString());
+          stmt.setInt(1, e.getValue().intValue());
+          stmt.addBatch();
+        }
+
+        stmt.executeBatch();
+
+      } catch (SQLException e)
+      {
+        handleSQLException(e, to_update.keySet());
+      }
+    });
   }
 
   public static void changeIntStats(Collection<Player> players,
@@ -394,21 +373,38 @@ public abstract class Database
       sb.append(s.getLeft());
       sb.append('=');
       sb.append(s.getLeft());
-      sb.append("'+?, ");
+      sb.append("+?, ");
+
+      var stat_cache = caches.get(s.getLeft());
+      if (stat_cache != null)
+      {
+        for (var p : players)
+        {
+          var cache = stat_cache.get(p);
+          if (cache != null)
+          {
+            cache.add(s.getRight());
+          }
+        }
+      }
     }
     sb.deleteCharAt(sb.length() - 2);
-    sb.append("WHERE uuid IN ?");
+    sb.append("WHERE uuid = ?");
 
     try (var stmt = con.prepareStatement(sb.toString()))
     {
       setupPreparedStatement(stmt);
 
-      stmt.setArray(stats.length, con.createArrayOf("VARCHAR", Util.getUUIDs(players)));
-      for (int i = 0; i < stats.length; i++)
+      for (var p : players)
       {
-        stmt.setInt(i, stats[i].getRight().intValue());
+        stmt.setString(stats.length + 1, p.getUniqueId().toString());
+        for (int i = 0; i < stats.length; i++)
+        {
+          stmt.setInt(i + 1, stats[i].getRight().intValue());
+        }
+        stmt.addBatch();
       }
-      stmt.executeUpdate();
+      stmt.executeBatch();
 
     } catch (SQLException e)
     {
@@ -424,30 +420,29 @@ public abstract class Database
       sb.append(s.getLeft());
       sb.append('=');
       sb.append(s.getLeft());
-      sb.append("'+?, ");
+      sb.append("+?, ");
 
       var stat_cache = caches.get(s.getLeft());
       if (stat_cache != null)
       {
         var cache = stat_cache.get(player);
-        if (cache == null)
+        if (cache != null)
         {
-          stat_cache.put(player, new MutableInt())
+          cache.add(s.getRight());
         }
       }
-      
     }
     sb.deleteCharAt(sb.length() - 2);
-    sb.append("WHERE uuid IN ?");
+    sb.append("WHERE uuid = ?");
 
     try (var stmt = con.prepareStatement(sb.toString()))
     {
       setupPreparedStatement(stmt);
 
-      stmt.setString(stats.length, player.getUniqueId().toString());
+      stmt.setString(stats.length + 1, player.getUniqueId().toString());
       for (int i = 0; i < stats.length; i++)
       {
-        stmt.setInt(i, stats[i].getRight().intValue());
+        stmt.setInt(i + 1, stats[i].getRight().intValue());
       }
       stmt.executeUpdate();
 
@@ -455,6 +450,41 @@ public abstract class Database
     {
       handleSQLException(e);
     }
+  }
+
+  public static void fetchPlayerStats(Player player, Consumer<Map<String, String>> callback)
+  {
+    Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
+      try (var stmt = con.prepareStatement(
+          "SELECT coins, lvl, xp, z_kills, h_kills, z_wins, h_wins, z_losses, h_losses, play_time FROM PlayerStats WHERE uuid = ?"))
+      {
+        setupPreparedStatement(stmt);
+
+        stmt.setString(1, player.getUniqueId().toString());
+        var result = stmt.executeQuery();
+        var stats = new LinkedHashMap<String, String>();
+
+        if (result.next())
+        {
+          stats.put("coins", Integer.toString(result.getInt(1)));
+          stats.put("level", Integer.toString(result.getInt(2)));
+          stats.put("xp", Integer.toString(result.getInt(3)));
+          stats.put("zombie kills", Integer.toString(result.getInt(4)));
+          stats.put("human kills", Integer.toString(result.getInt(5)));
+          stats.put("zombie wins", Integer.toString(result.getInt(6)));
+          stats.put("human wins", Integer.toString(result.getInt(7)));
+          stats.put("zombie losses", Integer.toString(result.getInt(8)));
+          stats.put("human losses", Integer.toString(result.getInt(9)));
+          stats.put("playtime (min)", Integer.toString(result.getInt(10)));
+        }
+
+        Bukkit.getScheduler().runTask(ZvH.singleton, () -> callback.accept(stats));
+
+      } catch (SQLException e)
+      {
+        handleSQLException(e);
+      }
+    });
   }
 
   public static void fetchPlayer(Player player)
@@ -474,6 +504,9 @@ public abstract class Database
       } else
       {
         addPlayer(player);
+        caches.get("coins").put(player, new MutableInt(Rewards.COINS_JOIN));
+        caches.get("lvl").put(player, new MutableInt(0));
+        caches.get("xp").put(player, new MutableInt(0));
       }
 
     } catch (SQLException e)
@@ -488,43 +521,6 @@ public abstract class Database
     for (var c : caches.values())
     {
       c.remove(player);
-    }
-  }
-
-  class UpdateBuilder
-  {
-    private HashMap<String, Integer> stats = new HashMap<>();
-
-    public UpdateBuilder change(String stat, int amount)
-    {
-      stats.put(stat, amount);
-      return this;
-    }
-
-    public UpdateBuilder(Player for_player)
-    {
-
-    }
-
-    public UpdateBuilder(Collection<Player> for_players)
-    {
-
-    }
-
-    public void execute()
-    {
-      var sb = new StringBuilder("UPDATE PlayerStats SET ");
-
-      try (var stmt = con.prepareStatement("UPDATE PlayerStats SET WHERE uuid IN ?"))
-      {
-        setupPreparedStatement(stmt);
-
-        // stmt.setArray(3, );
-
-      } catch (SQLException e)
-      {
-        handleSQLException(e);
-      }
     }
   }
 }

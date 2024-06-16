@@ -126,11 +126,12 @@ public abstract class MapControl
       new MapFeature("Bars", "Long, square bars randomly spanning the sky", Material.IRON_BARS, 0.2f),
       new MapFeature("Pillars", "Tall, square pillars randomly spread across the map", Material.QUARTZ_PILLAR, 0.25f),
       new MapFeature("Grid", "A grid spanning across the sky", Material.OAK_TRAPDOOR, 0.15f, 3),
+      new MapFeature("Scatter", "Random blocks in the air", Material.VOID_AIR, 0.12f),
       new MapFeature(null, null, null, 0.3f)
       /**/ };
   static final File fortress_schem = ZvH.singleton.getDataFolder().toPath().resolve("schematics/fort.schem").toFile();
   static final File bridge_schem = ZvH.singleton.getDataFolder().toPath().resolve("schematics/bridge.schem").toFile();
-  static final Pattern bars_p, pillars_p, fortress_p, bridge_p1, bridge_p2, grid_p;
+  static final Pattern bars_p, pillars_p, fortress_p, bridge_p1, bridge_p2, grid_p, scatter_p;
   static final Set<BaseBlock> red_filter, orange_filter;
   static
   {
@@ -144,6 +145,7 @@ public abstract class MapControl
     bridge_p1 = pf.parseFromInput("50%light_gray_wool,50%gravel", parserContext);
     bridge_p2 = pf.parseFromInput("90%light_gray_wool,10%gravel", parserContext);
     grid_p = pf.parseFromInput("70%light_gray_wool,20%gravel,10%air", parserContext);
+    scatter_p = pf.parseFromInput("2%light_gray_wool,98%air", parserContext);
 
     red_filter = new HashSet<BaseBlock>();
     red_filter.add(BukkitAdapter.adapt(Material.RED_WOOL.createBlockData()).toBaseBlock());
@@ -375,6 +377,12 @@ public abstract class MapControl
             ZvH.editSession.setBlock(block, grid_p);
           }
         });
+        break;
+
+      case "Scatter":
+        ZvH.editSession.setBlocks((Region) new CuboidRegion(BlockVector3.at(b.x1 + 1, b.y + 1, b.z1 + 1),
+            BlockVector3.at(b.x2 - 1, b.y + b.h - 1, b.z2 - 1)), scatter_p);
+        ZvH.editSession.flushQueue();
         break;
       }
       ZvH.editSession.flushQueue();

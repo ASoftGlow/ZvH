@@ -3,11 +3,14 @@ package dev.asoftglow.zvh;
 import java.util.Collection;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
+import dev.asoftglow.zvh.util.Util;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
+import net.kyori.adventure.text.format.TextDecoration;
 
 /**
  * Handles visual indication of rewards and configuration. {@code S_} = shallow,
@@ -38,12 +41,12 @@ public abstract class Rewards
 
   public static int calcLvl(int xp)
   {
-    return (int) Math.sqrt(xp + 200) - 14;
+    return (int) Math.sqrt(xp + 196) - 14;
   }
 
   public static int calcXp(int lvl)
   {
-    return (lvl + 14) * (lvl + 14) - 200;
+    return (lvl + 14) * (lvl + 14) - 196;
   }
 
   public static void changeCoins(Player player, int amount, String reason)
@@ -61,18 +64,8 @@ public abstract class Rewards
     if (amount == 0)
       return;
     S_changeCoins(players, amount, reason);
-    Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
-      Database.changeIntStat(players, "coins", amount);
-    });
-  }
 
-  public static void changeCoinsAndXp(Collection<Player> players, int coins, int xp, String reason)
-  {
-    for (var p : players)
-    {
-      S_changeCoins(p, coins, reason);
-    }
-
+    Database.changeIntStat(players, "coins", amount);
   }
 
   public static void S_changeCoins(Player player, int amount, String reason)
@@ -93,7 +86,18 @@ public abstract class Rewards
 
   public static void displayExpBar(Player player, int lvl, int xp)
   {
-    player.setExp((float) xp / Rewards.calcXp(lvl));
+    player.setExp((float) xp / Rewards.calcXp(lvl + 1));
     player.setLevel(lvl);
+  }
+
+  public static void handleLvlUp(Player player, int old, int lvl)
+  {
+    Util.playSoundAllAt(player, Sound.ENTITY_PLAYER_LEVELUP, 1f, 0.5f);
+    if (lvl % 10 == 0)
+    {
+      Util.sendServerMsg(Component.empty().append(player.displayName().decorate(TextDecoration.BOLD))
+          .append(Component.text(" has leveled up to "))
+          .append(Component.text(lvl, NamedTextColor.GOLD, TextDecoration.BOLD)).append(Component.text('!')));
+    }
   }
 }
