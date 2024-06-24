@@ -35,7 +35,8 @@ public abstract class SideBoard
   public static void updateCoins(Player player, int coins_change)
   {
     var coins = Database.getCachedIntStat(player, "coins");
-    getBoard(player).updateLine(3, Component.text("Coins: " + (coins.isPresent() ? coins.getAsInt() + coins_change : "?")));
+    getBoard(player).updateLine(3,
+        Component.text("Coins: " + (coins.isPresent() ? coins.getAsInt() + coins_change : "?")));
   }
 
   private static FastBoard getBoard(Player player)
@@ -59,7 +60,11 @@ public abstract class SideBoard
 
   public static void removeBoard(Player player)
   {
-    boards.remove(player).delete();
+    var fb = boards.remove(player);
+    if (fb != null)
+    {
+      fb.delete();
+    }
   }
 
   public static void updateCountDown(int t)

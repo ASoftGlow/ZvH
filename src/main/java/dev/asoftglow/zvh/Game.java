@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.UUID;
 
+import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.Pair;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -18,8 +19,10 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Vector;
 
 import dev.asoftglow.zvh.commands.ClassSelectionMenu;
+import dev.asoftglow.zvh.commands.MapModifierMenu;
 import dev.asoftglow.zvh.util.Util;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -39,6 +42,7 @@ public abstract class Game
   public static final Set<Player> humans = new HashSet<>();
   private static Game.State state = Game.State.STOPPED;
   private static int game_time;
+  private static byte game_count = 0;
   private static Set<UUID> temp_blocked = new HashSet<>();
 
   public enum State
@@ -110,8 +114,8 @@ public abstract class Game
       }
       if (ZvH.waitersTeam.getEntries().size() == Bukkit.getOnlinePlayers().size())
       {
-        if (count_down_time[0] > 4)
-          count_down_time[0] = 4;
+        if (count_down_time.intValue() > 4)
+          count_down_time.setValue(4);
       }
     } else
     {
@@ -265,6 +269,8 @@ public abstract class Game
     player.setRespawnLocation(null, true);
     player.closeInventory();
     player.setFallDistance(0);
+    player.setVelocity(new Vector(0, 0, 0));
+    MiscListener.cancelPlayerLifeTasks(player);
 
     if (state == Game.State.PLAYING && playing.remove(player))
     {
@@ -338,21 +344,44 @@ public abstract class Game
 
   public static void start()
   {
-    MapControl.chooseMap(ZvH.waitersTeam.getEntries().size());
-    MapControl.resetMap();
-    ClassSelectionMenu.reset();
-    temp_blocked.clear();
-    state = Game.State.PLAYING;
+    state = Game.State.LOADING;
     for (var e : ZvH.waitersTeam.getEntries())
     {
       Player player = Bukkit.getPlayer(e);
-      player.sendActionBar(Component.empty());
-      ZvH.waitersTeam.removePlayer(player);
-      SideBoard.updateGameState(player);
-      player.closeInventory();
-      playing.add(player);
+      if (player.isConnected())
+      {
+        playing.add(player);
+      }
     }
+    if (game_count++ % 2 == 0)
+    {
+      MapModifierMenu.showTo(playing, Game::_start);
+
+    } else
+    {
+      MapControl.chooseMap(ZvH.waitersTeam.getEntries().size());
+      _start();
+    }
+  }
+
+  private static void _start()
+  {
+    MapControl.resetMap();
+
+    ClassSelectionMenu.reset();
+    temp_blocked.clear();
+    state = Game.State.PLAYING;
     game_time = current_survival_time = SURVIVAL_TIME;// + Math.min(10, playing.size()) * 15;
+    for (var p : playing)
+    {
+      if (p.isConnected())
+      {
+        p.sendActionBar(Component.empty());
+        ZvH.waitersTeam.removePlayer(p);
+        SideBoard.updateGameState(p);
+        p.closeInventory();
+      }
+    }
 
     for (var player : pickZombies(playing))
     {
@@ -373,7 +402,8 @@ public abstract class Game
       {
         if (ClassSelectionMenu.hasMenuOpen(player))
           continue;
-        player.getInventory().addItem(new ItemStack(Material.GRAVEL, 4), new ItemStack(Material.LIGHT_GRAY_WOOL, 2));
+        player.getInventory().addItem(new ItemStack(CustomItems.fall_blocks[0], 4),
+            new ItemStack(CustomItems.solid_blocks[0], 2));
       }
     }, 0, 20 * 10));
 
@@ -448,23 +478,21 @@ public abstract class Game
 
   private static BukkitTask count_down_task, waiting_task;
   private static Stack<BukkitTask> game_tasks = new Stack<>();
-  private static final int[] count_down_time =
-  { 0 };
+  private static final MutableInt count_down_time = new MutableInt(0);
 
   public static void startCountDown()
   {
-    count_down_time[0] = 15 + 1;
+    count_down_time.setValue(15 + 1);
     count_down_task = Bukkit.getScheduler().runTaskTimer(ZvH.singleton, () -> {
-      if (--count_down_time[0] == 0)
+      count_down_time.subtract(1);
+      if (count_down_time.intValue() == 0)
       {
         cancelCountDown();
         waiting_task.cancel();
-        state = Game.State.LOADING;
-        SideBoard.updateGameState();
         start();
         return;
       }
-      SideBoard.updateCountDown(count_down_time[0]);
+      SideBoard.updateCountDown(count_down_time.intValue());
     }, 0, 20);
   }
 
@@ -645,7 +673,6 @@ public abstract class Game
       return;
     }
     var player = e.getPlayer();
-    DiscordBot.sendMessage(e.deathMessage());
     // kill rewards
     Combat.handleKillRewards(player);
 
@@ -685,5 +712,8 @@ public abstract class Game
     player.setItemOnCursor(null);
     e.setDroppedExp(0);
     e.setNewTotalExp(0);
+
+    MiscListener.cancelPlayerLifeTasks(player);
+    DiscordBot.sendMessage(e.deathMessage());
   }
 }

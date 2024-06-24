@@ -1,31 +1,63 @@
 package dev.asoftglow.zvh.util.guilib;
 
-import java.util.function.Predicate;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.WeakHashMap;
 
-import org.bukkit.Bukkit;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
-import xyz.janboerman.guilib.api.menu.ItemButton;
+
+import xyz.janboerman.guilib.api.menu.MenuButton;
 import xyz.janboerman.guilib.api.menu.MenuHolder;
 
 /**
  * A MenuButton that closes the Inventory and calls a callback when clicked.
  */
-public class SelectButton<P extends Plugin> extends ItemButton<MenuHolder<P>>
+public class SelectButton<MH extends MenuHolder<?>> implements MenuButton<MH>
 {
-  private final Predicate<InventoryClickEvent> callback;
+  protected ItemStack stack;
+  private final WeakHashMap<MH, Set<Integer>> inventoriesContainingMe = new WeakHashMap<>();
 
-  /**
-   * Creates the select button with the custom icon and callback.
-   * 
-   * @param icon the icon
-   * @param callback a callback accepting an InventoryClickEvent
-   */
-  public SelectButton(ItemStack icon, Predicate<InventoryClickEvent> callback)
+  protected SelectButton()
   {
-    super(icon);
-    this.callback = callback;
+  }
+
+  public SelectButton(ItemStack stack)
+  {
+    this.stack = stack;
+  }
+
+  public final ItemStack getIcon()
+  {
+    return stack;
+  }
+
+  public final void setIcon(ItemStack icon)
+  {
+    this.stack = icon;
+  }
+
+  public final boolean onAdd(MH menuHolder, int slot)
+  {
+    return this.inventoriesContainingMe.computeIfAbsent(menuHolder, mh -> new HashSet<>()).add(slot);
+  }
+
+  public final boolean onRemove(MH menuHolder, int slot)
+  {
+    Set<Integer> slots = this.inventoriesContainingMe.get(menuHolder);
+    if (slots != null)
+    {
+      boolean result = slots.remove(slot);
+      if (slots.isEmpty())
+      {
+        this.inventoriesContainingMe.remove(menuHolder);
+      }
+
+      return result;
+    } else
+    {
+      return true;
+    }
   }
 
   /**
@@ -34,10 +66,8 @@ public class SelectButton<P extends Plugin> extends ItemButton<MenuHolder<P>>
    * @param holder the MenuHolder
    * @param event the InventoryClickEvent
    */
-  @Override
-  public final void onClick(MenuHolder<P> holder, InventoryClickEvent event)
+  public final void onClick(MH holder, InventoryClickEvent event)
   {
-    if (callback.test(event))
-      Bukkit.getScheduler().runTask(holder.getPlugin(), event.getView()::close);
+
   }
 }

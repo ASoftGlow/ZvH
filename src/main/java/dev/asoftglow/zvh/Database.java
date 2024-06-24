@@ -15,27 +15,35 @@ import java.util.function.Consumer;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.Pair;
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Player;
 
 public abstract class Database
 {
   static private final Map<String, Map<Player, MutableInt>> caches = new HashMap<>(4);
   static private Connection con = null;
+  static private boolean attempted = false;
   static
   {
     caches.put("coins", new HashMap<>());
     caches.put("xp", new HashMap<>());
     caches.put("lvl", new HashMap<>());
   }
+  /**
+   * Last known
+   */
+  static private String url, name, username, password;
 
   public enum AsyncTarget
   {
     MainToMain, MainToAsync, AsyncToMain
   }
 
-  public static void login(String url, String name, String username, String password)
+  public static boolean login()
   {
+    if (attempted)
+      return false;
+
     Logger.Get().info("Logging in to %s as %s".formatted(url, username));
     try
     {
@@ -44,9 +52,14 @@ public abstract class Database
       con.createStatement().executeUpdate("USE " + name);
 
       Logger.Get().info("Connected to " + url);
+      return true;
 
     } catch (SQLException e)
     {
+      attempted = true;
+      // allow trying again after a minute
+      Bukkit.getScheduler().runTaskLater(ZvH.singleton, () -> attempted = false, 20 * 60);
+
       Logger.Get().warning("Failed to connect to db");
       handleSQLException(e);
 
@@ -55,6 +68,16 @@ public abstract class Database
       Logger.Get().warning("Failed to get driver");
       e.printStackTrace();
     }
+    return false;
+  }
+
+  public static void login(String url, String name, String username, String password)
+  {
+    Database.url = url;
+    Database.name = name;
+    Database.username = username;
+    Database.password = password;
+    login();
   }
 
   public static void logout()
@@ -63,7 +86,10 @@ public abstract class Database
       return;
     try
     {
-      con.close();
+      if (!con.isClosed())
+      {
+        con.close();
+      }
     } catch (SQLException e)
     {
       e.printStackTrace();
@@ -73,6 +99,8 @@ public abstract class Database
   private static void handleSQLException(SQLException e)
   {
     Logger.Get().warning(e.getMessage() + " from " + e.getStackTrace()[0].toString());
+
+    verifyConnection();
   }
 
   private static void handleSQLException(SQLException e, Player p)
@@ -95,7 +123,7 @@ public abstract class Database
 
   private static void setupPreparedStatement(PreparedStatement statement) throws SQLException
   {
-    if (ZvH.isDev || true)
+    if (ZvH.isDev)
     {
       Logger.Get().info("> Accessing db: " + statement.toString());
     }
@@ -103,6 +131,9 @@ public abstract class Database
 
   public static void addPlayer(Player player)
   {
+    if (!verifyConnection())
+      return;
+
     try (var stmt = con.prepareStatement("INSERT INTO PlayerStats(uuid, coins) VALUES(?, ?)"))
     {
       setupPreparedStatement(stmt);
@@ -121,6 +152,9 @@ public abstract class Database
 
   public static void getIntStatLeaderboard(String stat, int limit, Consumer<Map<OfflinePlayer, Integer>> callback)
   {
+    if (!verifyConnection())
+      return;
+
     Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
       try (var stmt = con
           .prepareStatement("SELECT uuid, " + stat + " FROM PlayerStats ORDER BY " + stat + " DESC LIMIT " + limit))
@@ -170,6 +204,8 @@ public abstract class Database
 
   public static void getIntStat(Player player, String stat, Consumer<OptionalInt> callback, AsyncTarget target)
   {
+    if (!verifyConnection())
+      return;
 
     switch (target)
     {
@@ -224,6 +260,8 @@ public abstract class Database
     {
       cached_stat.get(player).add(amount);
     }
+    if (!verifyConnection())
+      return;
 
     try (var stmt = con.prepareStatement("UPDATE PlayerStats SET " + stat + " = " + stat + " + ? WHERE uuid = ?"))
     {
@@ -249,6 +287,8 @@ public abstract class Database
         cached_stat.get(p).add(amount);
       }
     }
+    if (!verifyConnection())
+      return;
 
     Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
       try (var stmt = con.prepareStatement("UPDATE PlayerStats SET " + stat + " = " + stat + " + ? WHERE uuid = ?"))
@@ -292,6 +332,9 @@ public abstract class Database
     {
       caches.get("lvl").get(player).setValue(new_lvl);
       Rewards.handleLvlUp(player, old_lvl, new_lvl);
+
+      if (!verifyConnection())
+        return;
 
       Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
         try (var stmt = con.prepareStatement("UPDATE PlayerStats SET lvl = ? WHERE uuid = ?"))
@@ -342,6 +385,8 @@ public abstract class Database
       if (to_update.size() == 0)
         return;
     }
+    if (!verifyConnection())
+      return;
 
     Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
       try (var stmt = con.prepareStatement("UPDATE PlayerStats SET lvl = ? WHERE uuid = ?"))
@@ -388,6 +433,9 @@ public abstract class Database
         }
       }
     }
+    if (!verifyConnection())
+      return;
+
     sb.deleteCharAt(sb.length() - 2);
     sb.append("WHERE uuid = ?");
 
@@ -432,6 +480,9 @@ public abstract class Database
         }
       }
     }
+    if (!verifyConnection())
+      return;
+
     sb.deleteCharAt(sb.length() - 2);
     sb.append("WHERE uuid = ?");
 
@@ -454,6 +505,9 @@ public abstract class Database
 
   public static void fetchPlayerStats(Player player, Consumer<Map<String, String>> callback)
   {
+    if (!verifyConnection())
+      return;
+
     Bukkit.getScheduler().runTaskAsynchronously(ZvH.singleton, () -> {
       try (var stmt = con.prepareStatement(
           "SELECT coins, lvl, xp, z_kills, h_kills, z_wins, h_wins, z_losses, h_losses, play_time FROM PlayerStats WHERE uuid = ?"))
@@ -489,6 +543,15 @@ public abstract class Database
 
   public static void fetchPlayer(Player player)
   {
+    if (!verifyConnection())
+    {
+      caches.get("coins").put(player, new MutableInt(Rewards.COINS_JOIN));
+      caches.get("lvl").put(player, new MutableInt(0));
+      caches.get("xp").put(player, new MutableInt(0));
+      player.sendMessage("There was an issue with fetching your stats. It has been assumed that you new.");
+      return;
+    }
+
     try (var stmt = con.prepareStatement("SELECT coins, lvl, xp FROM PlayerStats WHERE uuid = ?"))
     {
       setupPreparedStatement(stmt);
@@ -521,6 +584,24 @@ public abstract class Database
     for (var c : caches.values())
     {
       c.remove(player);
+    }
+  }
+
+  private static boolean verifyConnection()
+  {
+    try
+    {
+      if (con == null || !con.isValid(3))
+      {
+        // Attempt to reconnect
+        return login();
+      }
+      return true;
+
+    } catch (SQLException e1)
+    {
+      e1.printStackTrace();
+      return false;
     }
   }
 }

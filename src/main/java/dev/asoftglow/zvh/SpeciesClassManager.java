@@ -89,6 +89,7 @@ public class SpeciesClassManager
     registerZClass("Witch", Material.POTION, 8);
     registerZClass("Spider", Material.STRING, 10);
     registerZClass("Blaze", Material.BLAZE_POWDER, 15);
+    registerZClass("Creeper", Material.CREEPER_HEAD, 8, 1, new PotionEffect(PotionEffectType.SLOW, -1, 0));
 
     registerHClass(Range.closedOpen(0, 10));
     registerHClass(Range.closedOpen(10, 25));
@@ -97,13 +98,19 @@ public class SpeciesClassManager
     registerHClass(Range.atLeast(50));
   }
 
-  public static void registerZClass(String name, Material icon, int price, PotionEffect... effects)
+  private static void registerZClass(String name, Material icon, int price, int min_lvl, PotionEffect... effects)
   {
-    zombie_classes.put(name, new ZombieClass(name, icon, price, readClass(name, "zombie"), effects));
+    zombie_classes.put(name, new ZombieClass(name, icon, price, min_lvl, readClass(name, "zombie"), effects));
     Logger.Get().info("Registered class %s.".formatted(name));
   }
 
-  public static void registerHClass(Range<Integer> lvl_range, PotionEffect... effects)
+  private static void registerZClass(String name, Material icon, int price, PotionEffect... effects)
+  {
+    zombie_classes.put(name, new ZombieClass(name, icon, price, 0, readClass(name, "zombie"), effects));
+    Logger.Get().info("Registered class %s.".formatted(name));
+  }
+
+  private static void registerHClass(Range<Integer> lvl_range, PotionEffect... effects)
   {
     human_classes.put(lvl_range, new HumanClass(readClass(lvl_range.lowerEndpoint().toString(), "human"), effects));
   }

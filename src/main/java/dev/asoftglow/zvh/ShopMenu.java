@@ -35,10 +35,11 @@ public class ShopMenu extends MenuHolder<ZvH>
       { new ShopItem(new ItemStack(Material.ARROW, 4), 9), new ShopItem(new ItemStack(Material.SHEARS), 8),
           new ShopItem(new ItemStack(Material.GOLDEN_APPLE), 40),
           new ShopItem(new ItemStack(Material.LIGHT_GRAY_WOOL, 5), 5),
-          new ShopItem(new ItemBuilder(Material.RED_WOOL).name("Unbreakable Wool")
-              .lore("Cannot be broken by explosions").amount(2).build(), 10),
+          new ShopItem(new ItemBuilder(Material.NETHERRACK).name("Unbreakable Flesh")
+              .lore("Absorbs explosions").amount(2).build(), 10),
           new ShopItem(new ItemStack(Material.GLASS, 2), 7),
-          new ShopItem(new ItemBuilder(Material.SHIELD).damage(296).build(), 15) };
+          new ShopItem(new ItemBuilder(Material.SHIELD).damage(296).build(), 18),
+          new ShopItem(new ItemStack(Material.FISHING_ROD, 1, (short) 44), 15) };
 
   private static final BiPredicate<ShopMenu, InventoryClickEvent> bp = (h, e) -> {
     var player = (Player) e.getWhoClicked();
@@ -50,7 +51,19 @@ public class ShopMenu extends MenuHolder<ZvH>
         Rewards.changeCoins(player, -item.price, "shopping");
         h.coins -= item.price;
       }
-      player.getInventory().addItem(item.item);
+
+      ItemStack is = item.item;
+      if (item.item.getType() == Material.GRAVEL)
+      {
+        is = new ItemStack(CustomItems.fall_blocks[0], is.getAmount());
+
+      } else if (item.item.getType() == Material.LIGHT_GRAY_WOOL)
+      {
+        is = new ItemStack(CustomItems.solid_blocks[0], is.getAmount());
+      }
+
+      player.getInventory().addItem(is);
+
       h.updateItems();
       Util.playSound(player, Sound.UI_BUTTON_CLICK, 0.9f, 1f);
 

@@ -1,7 +1,9 @@
 package dev.asoftglow.zvh;
 
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.HashSet;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.GameMode;
@@ -16,6 +18,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockCanBuildEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
@@ -53,44 +56,47 @@ public class GuardListener implements Listener
     e.setCancelled(true);
   }
 
-  private static final Set<Material> explodeWhitelist = Set.of(Material.GRAVEL, Material.LIGHT_GRAY_WOOL,
-      Material.LADDER, Material.COBWEB);
+  private static final Set<Material> explodeWhitelist = new HashSet<>();
+  static
+  {
+    explodeWhitelist.add(Material.LADDER);
+    explodeWhitelist.add(Material.COBWEB);
+    explodeWhitelist.addAll(Arrays.asList(CustomItems.fall_blocks));
+    explodeWhitelist.addAll(Arrays.asList(CustomItems.solid_blocks));
+  }
 
   @EventHandler
   public void onEntityExplode(EntityExplodeEvent e)
   {
-    if (e.getEntity().getType() == EntityType.PRIMED_TNT)
+    var fling = new ArrayList<Block>();
+    var destroyed = e.blockList();
+    var it = destroyed.iterator();
+    while (it.hasNext())
     {
-      var fling = new ArrayList<Block>();
-      var destroyed = e.blockList();
-      var it = destroyed.iterator();
-      while (it.hasNext())
+      var block = it.next();
+      if (!explodeWhitelist.contains(block.getType()))
+        it.remove();
+      else if (ThreadLocalRandom.current().nextBoolean() && block.isSolid())
       {
-        var block = it.next();
-        if (!explodeWhitelist.contains(block.getType()))
-          it.remove();
-        else if (ThreadLocalRandom.current().nextBoolean() && block.isSolid())
-        {
-          fling.add(block);
-        }
+        fling.add(block);
       }
+    }
 
-      for (var b : fling)
-      {
-        var fb = e.getLocation().getWorld().spawn(b.getLocation(), FallingBlock.class);
-        fb.setBlockData(b.getBlockData());
-        fb.setBlockState(b.getState());
-        var v2 = b.getLocation().toVector();
-        v2.setY(v2.getY() + 2);
-        var v = v2.subtract(e.getLocation().toVector());
-        if (v.getX() == 0)
-          v.setX(1);
-        if (v.getY() == 0)
-          v.setY(1);
-        if (v.getZ() == 0)
-          v.setZ(1);
-        fb.setVelocity(new Vector(0.5, 0.5, 0.5).divide(v));
-      }
+    for (var b : fling)
+    {
+      var fb = e.getLocation().getWorld().spawn(b.getLocation(), FallingBlock.class);
+      fb.setBlockData(b.getBlockData());
+      fb.setBlockState(b.getState());
+      var v2 = b.getLocation().toVector();
+      v2.setY(v2.getY() + 2);
+      var v = v2.subtract(e.getLocation().toVector());
+      if (v.getX() == 0)
+        v.setX(1);
+      if (v.getY() == 0)
+        v.setY(1);
+      if (v.getZ() == 0)
+        v.setZ(1);
+      fb.setVelocity(new Vector(0.5, 0.5, 0.5).divide(v));
     }
   }
 
@@ -134,12 +140,30 @@ public class GuardListener implements Listener
   @EventHandler
   public void onDamaged(EntityDamageEvent e)
   {
-    var cause_is_artifial = e.getCause() == DamageCause.VOID || e.getCause() == DamageCause.WORLD_BORDER
+    final boolean cause_is_artifial = e.getCause() == DamageCause.VOID || e.getCause() == DamageCause.WORLD_BORDER
         || e.getCause() == DamageCause.CUSTOM;
     if (e.getEntity() instanceof Player
         && !(Game.isPlaying((Player) e.getEntity()) && Game.getState() == Game.State.PLAYING) && !cause_is_artifial)
     {
       e.setDamage(0);
+    }
+  }
+
+  @EventHandler
+  public void onPlaced(BlockPlaceEvent e)
+  {
+    if (e.getPlayer() == null)
+    {
+      if (e.getBlock().getType() == Material.GRAVEL)
+      {
+        e.getBlock()
+            .setType(CustomItems.fall_blocks[ThreadLocalRandom.current().nextInt(1, CustomItems.fall_blocks.length)]);
+
+      } else if (e.getBlock().getType() == Material.LIGHT_GRAY_WOOL)
+      {
+        e.getBlock()
+            .setType(CustomItems.solid_blocks[ThreadLocalRandom.current().nextInt(1, CustomItems.solid_blocks.length)]);
+      }
     }
   }
 }

@@ -170,4 +170,20 @@ public abstract class Util
     }
     return players;
   }
+
+  public static int getMaxI(int[] array)
+  {
+    int i = 0;
+    int max = array[i];
+
+    for (int j = 0; j < array.length; j++)
+    {
+      if (array[j] > max)
+      {
+        i = j;
+        max = array[j];
+      }
+    }
+    return i;
+  }
 }

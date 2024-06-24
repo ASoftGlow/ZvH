@@ -36,6 +36,12 @@ public class JoinLeaveListener implements Listener
     {
       player.sendMessage(ZvH.reminderMsg);
     }
+    Bukkit.getScheduler().runTaskLater(ZvH.singleton, () -> {
+      player.sendMessage(
+          Component.text("\nNOTE: This is a new update in testing. It is expected that coins and levels are reset.\n",
+              NamedTextColor.RED));
+      player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BELL, 1, 1.5f);
+    }, 20 * 3);
 
     Database.fetchPlayer(player);
     SideBoard.addBoard(player);

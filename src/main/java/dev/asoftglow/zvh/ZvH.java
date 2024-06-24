@@ -340,7 +340,7 @@ public class ZvH extends JavaPlugin
       var sb = new StringBuilder();
 
       players.forEach((p, n) -> {
-        sb.append("\n%-3d %s".formatted(n.intValue(), p.getName()));
+        sb.append("\n%-3d %s".formatted(n.intValue(), p.getName() == null ? "?" : p.getName()));
       });
       sb.deleteCharAt(0);
 

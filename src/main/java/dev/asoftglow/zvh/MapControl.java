@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
+import java.util.List;
 import java.util.ArrayList;
 import java.io.File;
 import java.io.FileInputStream;
@@ -112,21 +113,21 @@ public abstract class MapControl
   }
 
   static MapSize current_size = null;
-  static MapFeature current_feature = null;
+  public static MapFeature current_feature = null;
 
   private static MapBounds b;
   static MapSize last_size = null;
 
   final static MapSize[] mapSizes =
   { new MapSize(new MapBounds(-47, 16, 52, 68, 1, 30), 1, new Vector(36, 2, 42), new Vector(-37, 2, 42)) };
-  public final static MapFeature[] features = new MapFeature[]
+  final static MapFeature[] features = new MapFeature[]
   { //
       new MapFeature("Bridge", "A giant bridge located in the center", Material.LADDER, 0.15f, 3),
       new MapFeature("Fortress", "A giant fortress located in the center", Material.IRON_DOOR, 0.1f),
       new MapFeature("Bars", "Long, square bars randomly spanning the sky", Material.IRON_BARS, 0.2f),
       new MapFeature("Pillars", "Tall, square pillars randomly spread across the map", Material.QUARTZ_PILLAR, 0.25f),
       new MapFeature("Grid", "A grid spanning across the sky", Material.OAK_TRAPDOOR, 0.15f, 3),
-      new MapFeature("Scatter", "Random blocks in the air", Material.VOID_AIR, 0.12f),
+      new MapFeature("Scatter", "Random blocks in the air", Material.MELON_SEEDS, 0.12f),
       new MapFeature(null, null, null, 0.3f)
       /**/ };
   static final File fortress_schem = ZvH.singleton.getDataFolder().toPath().resolve("schematics/fort.schem").toFile();
@@ -153,7 +154,19 @@ public abstract class MapControl
     orange_filter.add(BukkitAdapter.adapt(Material.ORANGE_WOOL.createBlockData()).toBaseBlock());
   }
 
-  public static void chooseMap(int playerCount)
+  public static List<MapFeature> getFeatures(int playerCount)
+  {
+    var feats = new ArrayList<>(Arrays.asList(features));
+    var fit = feats.iterator();
+    while (fit.hasNext())
+    {
+      if (playerCount < fit.next().min_players)
+        fit.remove();
+    }
+    return feats;
+  }
+
+  public static void chooseMapSize(int playerCount)
   {
     var sizes = new ArrayList<>(Arrays.asList(mapSizes));
     var it = sizes.iterator();
@@ -165,14 +178,12 @@ public abstract class MapControl
     if (sizes.size() == 0)
       throw new IllegalArgumentException("No maps for such few players");
     current_size = Util.pickRandom(sizes);
-    var feats = new ArrayList<>(Arrays.asList(features));
-    var fit = feats.iterator();
-    while (fit.hasNext())
-    {
-      if (playerCount < fit.next().min_players)
-        fit.remove();
-    }
-    current_feature = WeightedArray.getRandomFrom(feats);
+  }
+
+  public static void chooseMap(int playerCount)
+  {
+    chooseMapSize(playerCount);
+    current_feature = WeightedArray.getRandomFrom(getFeatures(playerCount));
     if (current_feature.name == null)
       current_feature = null;
     else

@@ -1,17 +1,9 @@
-import java.text.SimpleDateFormat
-
 plugins {
     id 'com.github.johnrengelman.shadow' version '8.1.1'
     id 'java'
 }
 
 group = "dev.asoftglow.zvh"
-
-static def getTime() {
-    SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd-HHmm")
-    sdf.setTimeZone(TimeZone.getTimeZone("UTC"))
-    return sdf.format(new Date()).toString()
-}
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -71,22 +63,3 @@ shadowJar {
 // Disable jar and replace with shadowJar
 jar.enabled = false
 assemble.dependsOn(shadowJar)
-
-tasks.register('printProjectName') {
-    doLast {
-        println rootProject.name
-    }
-}
-
-tasks.register('release') {
-    dependsOn build
-
-    doLast {
-        if (!version.endsWith("-SNAPSHOT")) {
-            // Rename final JAR to trim off version information
-            shadowJar.archiveFile.get().getAsFile()
-                    .renameTo(layout.buildDirectory.get().toString() + File.separator + 'libs' + File.separator
-                            + rootProject.name + '.jar')
-        }
-    }
-}

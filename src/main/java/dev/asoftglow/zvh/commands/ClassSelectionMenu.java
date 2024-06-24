@@ -39,13 +39,13 @@ public class ClassSelectionMenu extends MenuHolder<ZvH>
   private static Set<Player> shouldLeave = new HashSet<>();
 
   private List<String> classes = null;
-  private int coins = 0;
+  private int coins, lvl;
 
   private static final BiPredicate<ClassSelectionMenu, InventoryClickEvent> bp = (h, e) -> {
     var player = (Player) e.getWhoClicked();
     var c = h.classes.get(e.getSlot());
     var zClass = (ZombieClass) SpeciesClassManager.speciesGetClass("zombie", c);
-    if (h.coins >= zClass.price)
+    if (h.coins >= zClass.price && h.lvl >= zClass.min_lvl)
     {
       if (player.getGameMode() == GameMode.SURVIVAL)
       {
@@ -69,6 +69,7 @@ public class ClassSelectionMenu extends MenuHolder<ZvH>
     super(ZvH.singleton, 9, "Choose a zombie class:");
 
     coins = Database.getCachedIntStat(player, "coins").orElse(0);
+    lvl = Database.getCachedIntStat(player, "lvl").orElse(0);
 
     classes = SpeciesClassManager.speciesGetClassNames("zombie");
     for (int i = 0; i < classes.size(); i++)
@@ -76,12 +77,22 @@ public class ClassSelectionMenu extends MenuHolder<ZvH>
       var zClass = (ZombieClass) SpeciesClassManager.speciesGetClass("zombie", classes.get(i));
       var item = new ItemStack(zClass.icon);
       var meta = item.getItemMeta();
-      boolean isAffordable = zClass.price <= coins;
+      final boolean isAffordable = zClass.price <= coins;
+      final boolean isLeveled = zClass.min_lvl <= lvl;
 
       meta.displayName(Component.text(zClass.name.replace('_', ' '),
-          isAffordable ? Styles.affordable_style : Styles.too_expensive_style));
-      Util.addLore(meta, Component.text("Costs ", NamedTextColor.GRAY)
-          .append(Component.text(zClass.price, NamedTextColor.GOLD)).decoration(TextDecoration.ITALIC, false));
+          isAffordable && isLeveled ? Styles.affordable_style : Styles.too_expensive_style));
+      Util.addLore(meta,
+          Component.text("Costs ", NamedTextColor.GRAY)
+              .append(Component.text(zClass.price, isAffordable ? NamedTextColor.GOLD : NamedTextColor.RED))
+              .decoration(TextDecoration.ITALIC, false));
+      if (zClass.min_lvl > 0)
+      {
+        Util.addLore(meta,
+            Component.text("Level ", NamedTextColor.GRAY)
+                .append(Component.text(zClass.min_lvl, isLeveled ? NamedTextColor.AQUA : NamedTextColor.RED))
+                .decoration(TextDecoration.ITALIC, false));
+      }
       item.setItemMeta(meta);
 
       setButton(i, new PredicateButton<>(new ItemButton<>(item), bp));
@@ -116,8 +127,9 @@ public class ClassSelectionMenu extends MenuHolder<ZvH>
     if (shouldLeave.remove(player))
     {
       player.clearActivePotionEffects();
-      player.sendMessage(Component.text("You closed the menu without picking a class, so you were given the default one.")
-          .color(NamedTextColor.RED));
+      player
+          .sendMessage(Component.text("You closed the menu without picking a class, so you were given the default one.")
+              .color(NamedTextColor.RED));
       player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 20 * 2, 2));
       // give first
       SpeciesClassManager.speciesGetClass("zombie", "Zombie").giveTo(player);

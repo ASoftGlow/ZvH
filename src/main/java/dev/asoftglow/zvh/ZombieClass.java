@@ -15,16 +15,18 @@ public class ZombieClass implements SpeciesClass
   @NotNull
   public final Material icon;
   public final int price;
+  public final int min_lvl;
   @NotNull
   public final PotionEffect[] effects;
   @Setter
   public ItemStack[] items = new ItemStack[0];
 
-  public ZombieClass(@NotNull String name, @NotNull Material icon, int price, ItemStack[] items, PotionEffect[] effects)
+  public ZombieClass(@NotNull String name, @NotNull Material icon, int price, int min_lvl, ItemStack[] items, PotionEffect[] effects)
   {
     this.name = name;
     this.icon = icon;
     this.price = price;
+    this.min_lvl = min_lvl;
     if (items != null)
       this.items = items;
     this.effects = effects == null ? new PotionEffect[]

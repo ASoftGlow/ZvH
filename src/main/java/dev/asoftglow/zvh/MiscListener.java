@@ -14,10 +14,16 @@ import org.bukkit.event.player.PlayerPickupArrowEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 import dev.asoftglow.zvh.commands.ClassSelectionMenu;
 import dev.asoftglow.zvh.util.Util;
 
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Bukkit;
@@ -31,12 +37,49 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
+
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
 public class MiscListener implements Listener
 {
+  private static final Map<Player, List<Integer>> life_tasks = new HashMap<>();
+
+  public static void addPlayerLifeTask(Player player, BukkitTask task)
+  {
+    var l = life_tasks.get(player);
+    if (l == null)
+    {
+      l = new ArrayList<>();
+      life_tasks.put(player, l);
+
+    }
+    l.add(task.getTaskId());
+  }
+
+  public static void cancelPlayerLifeTasks(Player player)
+  {
+    var tasks = life_tasks.remove(player);
+    if (tasks == null)
+      return;
+    for (var t : tasks)
+    {
+      Bukkit.getScheduler().cancelTask(t);
+    }
+  }
+
+  public static void removeLifeTask(Player player, int task_id)
+  {
+    var l = life_tasks.get(player);
+    if (l != null)
+    {
+      l.remove(task_id);
+    }
+  }
+
   @EventHandler
   public void onRespawn(PlayerRespawnEvent e)
   {
@@ -154,7 +197,7 @@ public class MiscListener implements Listener
   @EventHandler
   public void onItemInteract(PlayerInteractEvent e)
   {
-    var player = e.getPlayer();
+    final var player = e.getPlayer();
     if (e.getAction() == Action.RIGHT_CLICK_AIR || e.getAction() == Action.RIGHT_CLICK_BLOCK)
     {
       if (e.getItem() == null)
@@ -163,6 +206,7 @@ public class MiscListener implements Listener
       if (e.getItem().equals(CustomItems.spec_leave))
       {
         Game.leaveSpectators(player);
+
       } else if (e.getItem().equals(CustomItems.tracker))
       {
         var nearest = Util.getClosestTeamMember(player, Game.humans);
@@ -176,10 +220,12 @@ public class MiscListener implements Listener
         Util.playSound(player, Sound.BLOCK_PISTON_CONTRACT, 0.8f, 1.5f);
         player.sendActionBar(Component.text("Calibrated tracker", NamedTextColor.GRAY));
         player.swingHand(e.getHand());
+
       } else if (e.getItem().equals(CustomItems.shop_open))
       {
         ShopMenu.handleCommand(player);
         player.swingHand(e.getHand());
+
       } else if (e.getItem().getType() == Material.GUNPOWDER)
       {
         if (e.getClickedBlock() != null)
@@ -187,7 +233,7 @@ public class MiscListener implements Listener
           if (e.getClickedBlock().getType() == Material.BARRIER
               && e.getClickedBlock().getLocation().distanceSquared(e.getPlayer().getLocation()) < 5)
           {
-            e.getPlayer().sendMessage(Component.text("You are too close to the barrier!").color(NamedTextColor.RED));
+            player.sendMessage(Component.text("You are too close to the barrier!").color(NamedTextColor.RED));
             return;
           }
         }
@@ -195,13 +241,44 @@ public class MiscListener implements Listener
           e.getItem().setAmount(e.getItem().getAmount() - 1);
         var spawnPos = player.getLocation();
         spawnPos.setY(spawnPos.getY() + 1d);
-        var tnt = (TNTPrimed) ZvH.world.spawnEntity(spawnPos, EntityType.PRIMED_TNT, false);
+        var tnt = ZvH.world.createEntity(spawnPos, TNTPrimed.class);
         tnt.setFuseTicks(60);
         tnt.setVelocity(spawnPos.getDirection().multiply(2.2f));
         tnt.setSource(player);
+        tnt.spawnAt(spawnPos);
+
         for (var p : Bukkit.getOnlinePlayers())
           p.playSound(player.getLocation(), Sound.ENTITY_SNOWBALL_THROW, 1f, 1.5f);
         player.swingHand(e.getHand());
+
+      } else if (e.getItem().equals(CustomItems.light_fuse))
+      {
+        player.swingHand(e.getHand());
+        player.getInventory().remove(e.getItem());
+
+        BukkitRunnable task = new BukkitRunnable()
+        {
+          int i = 4 + 1;
+
+          public void run()
+          {
+            if (--i == 0)
+            {
+              player.sendActionBar(Component.text("BOOM!", NamedTextColor.RED));
+              player.getWorld().createExplosion(player, 6f, false);
+              player.setKiller(player);
+              player.setHealth(0);
+              cancel();
+              removeLifeTask(player, getTaskId());
+              return;
+            }
+            Util.playSoundAllAt(player, Sound.ENTITY_CREEPER_PRIMED, 1f, (float) i / 2f);
+            player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 10, 0));
+            player.sendActionBar(Component.text("Exploding in ", NamedTextColor.RED).append(Component.text(i)));
+          }
+        };
+
+        addPlayerLifeTask(player, task.runTaskTimer(ZvH.singleton, 0, 20));
       }
     }
   }
@@ -219,8 +296,7 @@ public class MiscListener implements Listener
   @EventHandler @SuppressWarnings("deprecation")
   public void onArrowPickUp(PlayerPickupArrowEvent e)
   {
-    if (Game.humans.contains(e.getPlayer())
-        && Game.zombies.contains(Bukkit.getPlayer(e.getArrow().getOwnerUniqueId())))
+    if (Game.humans.contains(e.getPlayer()) && Game.zombies.contains(Bukkit.getPlayer(e.getArrow().getOwnerUniqueId())))
     {
       if (e.getArrow().getUniqueId().toString().charAt(0) % 2 != 0)
       {
