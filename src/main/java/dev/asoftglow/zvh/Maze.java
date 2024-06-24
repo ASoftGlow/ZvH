@@ -322,10 +322,7 @@ public class Maze {
   public void build(int x, int y, int z, int height) {
     for (int iy = 0; iy < dimensionY; iy++){
         for (int i = 0; i < dimensionX; i++){
-            if (cells[i][iy].wall == false) {
-                ZvH.editSession.setBlocks((Region) new CuboidRegion(BlockVector3.at(x + i*2, y, z + iy*2),
-                BlockVector3.at(x + i*2 + 1, y + height, z + iy*2 + 1)), BukkitAdapter.asBlockType(Material.AIR));
-            } else {
+            if (cells[i][iy].wall) {
                 ZvH.editSession.setBlocks((Region) new CuboidRegion(BlockVector3.at(x + i*2, y, z + iy*2),
                 BlockVector3.at(x + i*2 + 1, y + height, z + iy*2 + 1)), BukkitAdapter.asBlockType(Material.LIGHT_GRAY_WOOL));
             }
@@ -334,7 +331,7 @@ public class Maze {
   }
 
   // run it
-  public static void main(String[] args) {
+  public static void newMaze() {
       Maze maze = new Maze(20);
       maze.build(200,60,200,50);
   }
