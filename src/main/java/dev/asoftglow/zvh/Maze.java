@@ -17,7 +17,7 @@ import com.sk89q.worldedit.regions.Region;
 public class Maze {
   private int dimensionX, dimensionY; // dimension of maze
   private int gridDimensionX, gridDimensionY; // dimension of output grid
-  private char[][] grid; // output grid
+  private int[][] grid; // output grid
   private Cell[][] cells; // 2d array of Cells
   private Random random = new Random(); // The random object
 
@@ -32,7 +32,7 @@ public class Maze {
       dimensionY = yDimension;
       gridDimensionX = xDimension * 4 + 1;
       gridDimensionY = yDimension * 2 + 1;
-      grid = new char[gridDimensionX][gridDimensionY];
+      grid = new int[gridDimensionX][gridDimensionY];
       init();
       generateMaze();
   }
@@ -243,7 +243,7 @@ public class Maze {
   // draw the maze
   public void updateGrid() {
     
-      char backChar = ' ', wallChar = 'X', cellChar = ' ', pathChar = '*';
+      int backChar = 0, wallChar = 1, cellChar = 0, pathChar = 0;
       // fill background
       for (int x = 0; x < gridDimensionX; x ++) {
           for (int y = 0; y < gridDimensionY; y ++) {
@@ -322,17 +322,18 @@ public class Maze {
   public void build(int x, int y, int z, int height) {
     for (int iy = 0; iy < dimensionY; iy++){
         for (int i = 0; i < dimensionX; i++){
-            if (cells[i][iy].wall) {
-                ZvH.editSession.setBlocks((Region) new CuboidRegion(BlockVector3.at(x + i*2, y, z + iy*2),
-                BlockVector3.at(x + i*2 + 1, y + height, z + iy*2 + 1)), BukkitAdapter.asBlockType(Material.LIGHT_GRAY_WOOL));
+            if (grid[i][iy] == 1) {
+                ZvH.editSession.setBlocks((Region) new CuboidRegion(BlockVector3.at(x + i, y, z + iy*2),
+                BlockVector3.at(x + i + 1, y + height, z + iy*2 + 1)), BukkitAdapter.asBlockType(Material.LIGHT_GRAY_WOOL));
             }
         }
     }
   }
 
   // run it
-  public static void newMaze() {
+  public static void main(String[] args) {
       Maze maze = new Maze(20);
-      maze.build(200,60,200,50);
+      maze.draw();
+      //maze.build(200,60,200,50);
   }
 }
