@@ -320,20 +320,21 @@ public class Maze {
   }
 
   public void build(int x, int y, int z, int height) {
-    for (int iy = 0; iy < dimensionY; iy++){
-        for (int i = 0; i < dimensionX; i++){
+    for (int iy = 0; iy < dimensionY * 2; iy++){
+        for (int i = 0; i < dimensionX * 2; i++){
             if (grid[i][iy] == 1) {
                 ZvH.editSession.setBlocks((Region) new CuboidRegion(BlockVector3.at(x + i, y, z + iy*2),
                 BlockVector3.at(x + i + 1, y + height, z + iy*2 + 1)), BukkitAdapter.asBlockType(Material.LIGHT_GRAY_WOOL));
             }
         }
     }
+    ZvH.editSession.flushQueue();
   }
 
   // run it
-  public static void main(String[] args) {
+  public static void newMaze() {
       Maze maze = new Maze(20);
       maze.draw();
-      //maze.build(200,60,200,50);
+      maze.build(200,0,200,50);
   }
 }
