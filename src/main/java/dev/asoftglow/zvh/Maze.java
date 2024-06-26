@@ -320,13 +320,25 @@ public class Maze {
   }
 
   public void build(int x, int y, int z, int height) {
-    for (int iy = 0; iy < dimensionY * 2; iy++){
-        for (int i = 0; i < dimensionX * 2; i++){
-            if (grid[i][iy] == 1) {
+    int [][] out;
+    out = new int[dimensionX * 2 + 1][dimensionY * 2 + 1];
+
+    for (int iy = 0; iy < dimensionY * 2 + 1; iy++){
+        for (int i = 0; i < dimensionX * 2 + 1; i++){
+            if (grid[i * 2][iy] == 1) {
                 ZvH.editSession.setBlocks((Region) new CuboidRegion(BlockVector3.at(x + i, y, z + iy*2),
                 BlockVector3.at(x + i + 1, y + height, z + iy*2 + 1)), BukkitAdapter.asBlockType(Material.LIGHT_GRAY_WOOL));
+                out[i][iy] = 1;
             }
         }
+    }
+
+    System.out.println();
+    for (int outy = 0; outy < dimensionY * 2 + 1; outy++){
+        for (int outx = 0; outx < dimensionX * 2 + 1; outx++){
+            System.out.print(out[outx][outy]);
+        }
+        System.out.println();
     }
     ZvH.editSession.flushQueue();
   }
