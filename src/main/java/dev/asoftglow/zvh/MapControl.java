@@ -50,6 +50,7 @@ import lombok.Getter;
 import dev.asoftglow.zvh.commands.MapModifierMenu.MapModifier;
 import dev.asoftglow.zvh.util.Util;
 import dev.asoftglow.zvh.util.WeightedArray;
+import dev.asoftglow.zvh.Maze;
 
 @SuppressWarnings("null")
 public abstract class MapControl
@@ -128,6 +129,8 @@ public abstract class MapControl
       new MapFeature("Pillars", "Tall, square pillars randomly spread across the map", Material.QUARTZ_PILLAR, 0.25f),
       new MapFeature("Grid", "A grid spanning across the sky", Material.OAK_TRAPDOOR, 0.15f, 3),
       new MapFeature("Scatter", "Random blocks in the air", Material.MELON_SEEDS, 0.12f),
+      new MapFeature("Maze", "A maze filling the center of the map", Material.STONE_BRICKS, 0.15f),
+      new MapFeature("Labyrinth", "RARE FEATURE - A colossal labyrinth filling the entire map", Material.CRACKED_STONE_BRICKS, 0.02f),
       new MapFeature(null, null, null, 0.3f)
       /**/ };
   static final File fortress_schem = ZvH.singleton.getDataFolder().toPath().resolve("schematics/fort.schem").toFile();
@@ -395,6 +398,15 @@ public abstract class MapControl
             BlockVector3.at(b.x2 - 1, b.y + b.h - 1, b.z2 - 1)), scatter_p);
         ZvH.editSession.flushQueue();
         break;
+
+      case "Maze":
+        Maze.newMaze(-21,2,17,50,28,51);
+        break;
+
+      case "Labyrinth":
+        Maze.newMaze(-46,2,17,98,28,51);
+        break;
+
       }
       ZvH.editSession.flushQueue();
     }
