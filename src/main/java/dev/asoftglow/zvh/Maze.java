@@ -327,7 +327,7 @@ public class Maze {
         for (int i = 0; i < dimensionX * 2 + 1; i++){
             if (grid[i * 2][iy] == 1) {
                 ZvH.editSession.setBlocks((Region) new CuboidRegion(BlockVector3.at(x + i, y, z + iy*2),
-                BlockVector3.at(x + i + 1, y + height, z + iy*2 + 1)), BukkitAdapter.asBlockType(Material.GRAVEL));
+                BlockVector3.at(x + i, y + height, z + iy*2)), BukkitAdapter.asBlockType(Material.GRAVEL));
                 out[i][iy] = 1;
             }
         }

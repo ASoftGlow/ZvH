@@ -50,7 +50,6 @@ import lombok.Getter;
 import dev.asoftglow.zvh.commands.MapModifierMenu.MapModifier;
 import dev.asoftglow.zvh.util.Util;
 import dev.asoftglow.zvh.util.WeightedArray;
-import dev.asoftglow.zvh.Maze;
 
 @SuppressWarnings("null")
 public abstract class MapControl
