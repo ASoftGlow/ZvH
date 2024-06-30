@@ -399,7 +399,7 @@ public abstract class MapControl
         break;
 
       case "Maze":
-        Maze.newMaze(-21,2,17,50,28,51);
+        Maze.newMaze(-21,2,17,25,28,25);
         break;
 
       case "Labyrinth":

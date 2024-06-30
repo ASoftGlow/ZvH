@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Random;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
@@ -303,7 +304,7 @@ public class Maze {
 
   // simply prints the map
   public void draw() {
-      System.out.print(this);
+    System.out.print(this);
   }
   // forms a meaningful representation
   @Override
@@ -327,18 +328,10 @@ public class Maze {
         for (int i = 0; i < dimensionX * 2 + 1; i++){
             if (grid[i * 2][iy] == 1) {
                 ZvH.editSession.setBlocks((Region) new CuboidRegion(BlockVector3.at(x + i, y, z + iy*2),
-                BlockVector3.at(x + i, y + height, z + iy*2)), BukkitAdapter.asBlockType(Material.GRAVEL));
+                BlockVector3.at(x + i, y + height, z + iy)), BukkitAdapter.asBlockType(Material.GRAVEL));
                 out[i][iy] = 1;
             }
         }
-    }
-
-    System.out.println();
-    for (int outy = 0; outy < dimensionY * 2 + 1; outy++){
-        for (int outx = 0; outx < dimensionX * 2 + 1; outx++){
-            System.out.print(out[outx][outy]);
-        }
-        System.out.println();
     }
     ZvH.editSession.flushQueue();
   }
