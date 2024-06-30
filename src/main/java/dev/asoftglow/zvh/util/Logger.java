@@ -1,4 +1,4 @@
-package dev.asoftglow.zvh;
+package dev.asoftglow.zvh.util;
 
 public abstract class Logger
 {

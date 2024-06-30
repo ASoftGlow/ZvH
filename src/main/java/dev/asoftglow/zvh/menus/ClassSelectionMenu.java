@@ -1,4 +1,4 @@
-package dev.asoftglow.zvh.commands;
+package dev.asoftglow.zvh.menus;
 
 import java.util.HashSet;
 import java.util.List;
@@ -23,7 +23,7 @@ import dev.asoftglow.zvh.ZombieClass;
 import dev.asoftglow.zvh.SpeciesClassManager;
 import dev.asoftglow.zvh.Styles;
 import dev.asoftglow.zvh.ZvH;
-import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.util.Utils;
 import dev.asoftglow.zvh.util.guilib.CloseButton;
 import dev.asoftglow.zvh.util.guilib.PredicateButton;
 import net.kyori.adventure.text.Component;
@@ -56,11 +56,11 @@ public class ClassSelectionMenu extends MenuHolder<ZvH>
       zClass.giveTo(player);
       player.getInventory().setItem(8, CustomItems.shop_open);
       shouldLeave.remove(player);
-      Util.playSound(player, Sound.UI_BUTTON_CLICK, 0.9f, 1f);
+      Utils.playSound(player, Sound.UI_BUTTON_CLICK, 0.9f, 1f);
       return false;
     }
 
-    Util.playSound(player, Sound.ENTITY_VILLAGER_NO, 0.9f, 1f);
+    Utils.playSound(player, Sound.ENTITY_VILLAGER_NO, 0.9f, 1f);
     return true;
   };
 
@@ -82,13 +82,13 @@ public class ClassSelectionMenu extends MenuHolder<ZvH>
 
       meta.displayName(Component.text(zClass.name.replace('_', ' '),
           isAffordable && isLeveled ? Styles.affordable_style : Styles.too_expensive_style));
-      Util.addLore(meta,
+      Utils.addLore(meta,
           Component.text("Costs ", NamedTextColor.GRAY)
               .append(Component.text(zClass.price, isAffordable ? NamedTextColor.GOLD : NamedTextColor.RED))
               .decoration(TextDecoration.ITALIC, false));
       if (zClass.min_lvl > 0)
       {
-        Util.addLore(meta,
+        Utils.addLore(meta,
             Component.text("Level ", NamedTextColor.GRAY)
                 .append(Component.text(zClass.min_lvl, isLeveled ? NamedTextColor.AQUA : NamedTextColor.RED))
                 .decoration(TextDecoration.ITALIC, false));

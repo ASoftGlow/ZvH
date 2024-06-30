@@ -30,29 +30,4 @@ public abstract class CustomItems
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         light_fuse.setItemMeta(meta);
     }
-
-    public static final Material[] fall_blocks =
-    {
-        Material.GRAVEL,
-        Material.RED_CONCRETE_POWDER,
-        Material.ORANGE_CONCRETE_POWDER,
-        Material.YELLOW_CONCRETE_POWDER,
-        Material.LIME_CONCRETE_POWDER,
-        Material.LIGHT_BLUE_CONCRETE_POWDER,
-        Material.CYAN_CONCRETE_POWDER,
-        Material.PURPLE_CONCRETE_POWDER,
-        Material.WHITE_CONCRETE_POWDER
-    };
-    public static final Material[] solid_blocks =
-    {
-        Material.LIGHT_GRAY_WOOL,
-        Material.RED_WOOL,
-        Material.ORANGE_WOOL,
-        Material.YELLOW_WOOL,
-        Material.LIME_WOOL,
-        Material.LIGHT_BLUE_WOOL,
-        Material.CYAN_WOOL,
-        Material.PURPLE_WOOL,
-        Material.WHITE_WOOL
-    };
 }

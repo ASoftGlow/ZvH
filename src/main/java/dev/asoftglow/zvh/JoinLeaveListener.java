@@ -8,7 +8,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
-import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.util.Utils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
@@ -24,7 +24,7 @@ public class JoinLeaveListener implements Listener
     } else if (player.isOp())
     {
       Moderation.vanishTo(player);
-      player.displayName(player.displayName().color(NamedTextColor.GOLD));
+      player.displayName(player.displayName().color(NamedTextColor.DARK_AQUA));
     }
 
     e.joinMessage(Component.text("Welcome, ").append(player.displayName()).append(Component.text("!")));
@@ -46,7 +46,7 @@ public class JoinLeaveListener implements Listener
     Database.fetchPlayer(player);
     SideBoard.addBoard(player);
 
-    Util.playSoundAll(Sound.UI_TOAST_IN, 1f, 1.5f);
+    Utils.playSoundAll(Sound.UI_TOAST_IN, 1f, 1.5f);
     Music.stop(player);
     Music.playLobby(player);
     DiscordBot.sendMessage("Welcome, %s!".formatted(player.getName()));
@@ -63,7 +63,7 @@ public class JoinLeaveListener implements Listener
     Music.stop(player);
 
     e.quitMessage(Component.text("Goodbye, %s...".formatted(player.getName())));
-    Util.playSoundAll(Sound.UI_TOAST_OUT, 1f, 1.5f);
+    Utils.playSoundAll(Sound.UI_TOAST_OUT, 1f, 1.5f);
     DiscordBot.sendMessage("Goodbye, %s...".formatted(player.getName()));
     DiscordBot.setStatus("Online", ZvH.getPlayerCount() - 1);
   }

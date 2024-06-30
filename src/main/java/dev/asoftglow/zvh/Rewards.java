@@ -6,7 +6,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
-import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.util.Utils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
@@ -92,10 +92,10 @@ public abstract class Rewards
 
   public static void handleLvlUp(Player player, int old, int lvl)
   {
-    Util.playSoundAllAt(player, Sound.ENTITY_PLAYER_LEVELUP, 1f, 0.5f);
+    Utils.playSoundAllAt(player, Sound.ENTITY_PLAYER_LEVELUP, 1f, 0.5f);
     if (lvl % 10 == 0)
     {
-      Util.sendServerMsg(Component.empty().append(player.displayName().decorate(TextDecoration.BOLD))
+      Utils.sendServerMsg(Component.empty().append(player.displayName().decorate(TextDecoration.BOLD))
           .append(Component.text(" has leveled up to "))
           .append(Component.text(lvl, NamedTextColor.GOLD, TextDecoration.BOLD)).append(Component.text('!')));
     }

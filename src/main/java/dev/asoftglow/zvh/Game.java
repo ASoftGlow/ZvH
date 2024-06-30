@@ -21,9 +21,9 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
-import dev.asoftglow.zvh.commands.ClassSelectionMenu;
-import dev.asoftglow.zvh.commands.MapModifierMenu;
-import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.menus.ClassSelectionMenu;
+import dev.asoftglow.zvh.menus.MapModifierMenu;
+import dev.asoftglow.zvh.util.Utils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -109,7 +109,7 @@ public abstract class Game
     {
       if (ZvH.waitersTeam.getEntries().size() == REQUIRED_PLAYERS)
       {
-        Util.sendServerMsg("A game is starting soon!");
+        Utils.sendServerMsg("A game is starting soon!");
         startCountDown();
       }
       if (ZvH.waitersTeam.getEntries().size() == Bukkit.getOnlinePlayers().size())
@@ -179,7 +179,7 @@ public abstract class Game
           .color(NamedTextColor.RED)
           .append(Component.text("you must wait until next game to play again").decorate(TextDecoration.UNDERLINED))
           .append(Component.text(".")));
-      Util.playSound(player, Sound.BLOCK_REDSTONE_TORCH_BURNOUT, 1, 0.8f);
+      Utils.playSound(player, Sound.BLOCK_REDSTONE_TORCH_BURNOUT, 1, 0.8f);
       return;
     }
     playing.add(player);
@@ -206,7 +206,7 @@ public abstract class Game
         MapControl.getLocation(player, MapControl.current_size.zombieSpawn(), MapControl.current_size.humanSpawn()));
     ClassSelectionMenu.showTo(player);
     player.showTitle(Styles.zombie_spawn_title);
-    Util.playSound(player, Sound.ENTITY_ZOMBIE_AMBIENT, 1f, 0.8f);
+    Utils.playSound(player, Sound.ENTITY_ZOMBIE_AMBIENT, 1f, 0.8f);
   }
 
   public static void joinHumans(Player player, boolean revived)
@@ -223,17 +223,17 @@ public abstract class Game
     if (revived)
       return;
     player.teleport(
-        MapControl.getLocation(player, MapControl.mapSizes[0].humanSpawn(), MapControl.mapSizes[0].zombieSpawn()));
+        MapControl.getLocation(player, MapControl.current_size.humanSpawn(), MapControl.current_size.zombieSpawn()));
     player.showTitle(Styles.human_spawn_title);
-    Util.playSound(player, Sound.ENTITY_VILLAGER_AMBIENT, 1f, 0.8f);
+    Utils.playSound(player, Sound.ENTITY_VILLAGER_AMBIENT, 1f, 0.8f);
   }
 
   public static void reviveZombie(Player player)
   {
     // FIXME
     player.getAdvancementProgress(ZvH.revival).awardCriteria("revival");
-    Util.playSoundAllAt(player, Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 0.9f, 1.2f);
-    Util.sendServerMsg(Component.text(player.getName()).decorate(TextDecoration.BOLD)
+    Utils.playSoundAllAt(player, Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 0.9f, 1.2f);
+    Utils.sendServerMsg(Component.text(player.getName()).decorate(TextDecoration.BOLD)
         .append(Component.text(" has been become human again!").color(NamedTextColor.GRAY))
         .hoverEvent(HoverEvent.showText(Component.text("Infect 3 humans as a zombie"))));
 
@@ -309,7 +309,7 @@ public abstract class Game
               p.getInventory().clear();
               p.setItemOnCursor(null);
               leaveHumans(p);
-              Util.playSound(p, Sound.ENTITY_ZOMBIE_AMBIENT, 50f, 0.8f);
+              Utils.playSound(p, Sound.ENTITY_ZOMBIE_AMBIENT, 50f, 0.8f);
             }
           }
         }
@@ -402,8 +402,8 @@ public abstract class Game
       {
         if (ClassSelectionMenu.hasMenuOpen(player))
           continue;
-        player.getInventory().addItem(new ItemStack(CustomItems.fall_blocks[0], 4),
-            new ItemStack(CustomItems.solid_blocks[0], 2));
+        player.getInventory().addItem(new ItemStack(Cosmetics.Blocks.getFallMaterialFor(player), 4),
+            new ItemStack(Cosmetics.Blocks.getSolidMaterialFor(player), 2));
       }
     }, 0, 20 * 10));
 
@@ -422,7 +422,7 @@ public abstract class Game
       }
     }, 0, 20 * 30));
 
-    Util.sendServerMsg("A game has started.");
+    Utils.sendServerMsg("A game has started.");
   }
 
   public static void stopGameTasks()
@@ -461,7 +461,8 @@ public abstract class Game
       p.sendMessage(Component.newline()
           .append(Component.text("Game Summary\n\n", NamedTextColor.LIGHT_PURPLE, TextDecoration.UNDERLINED))
           .append(Component.text("  Your kills: ")).append(Component.text(Combat.getKills(p), style))
-          .append(killers_msg).appendNewline());
+          .append(killers_msg).appendNewline() //
+      );
 
       leave(p);
     }
@@ -473,7 +474,7 @@ public abstract class Game
 
     ZvH.updateLeaderboards();
     SideBoard.updateGameState();
-    Util.sendServerMsg("This game has ended.");
+    Utils.sendServerMsg("This game has ended.");
   }
 
   private static BukkitTask count_down_task, waiting_task;
@@ -533,7 +534,7 @@ public abstract class Game
 
     for (int i = 0; i < num_chosen; i++)
     {
-      last_zombies.add(Util.popRandom(options));
+      last_zombies.add(Utils.popRandom(options));
     }
     return last_zombies;
   }
@@ -560,7 +561,7 @@ public abstract class Game
       } else
       {
         joinWaiters(player);
-        Util.playSound(player, Sound.BLOCK_AMETHYST_BLOCK_HIT, 1, 1);
+        Utils.playSound(player, Sound.BLOCK_AMETHYST_BLOCK_HIT, 1, 1);
         player.sendMessage(Component.text("Joined queue").color(NamedTextColor.GREEN));
       }
       break;
@@ -581,7 +582,7 @@ public abstract class Game
     for (var p : Bukkit.getOnlinePlayers())
     {
       p.showTitle(Styles.zombies_win_title);
-      Util.playSound(p, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.7f, 1f);
+      Utils.playSound(p, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.7f, 1f);
     }
   }
 
@@ -626,7 +627,7 @@ public abstract class Game
     for (var p : Bukkit.getOnlinePlayers())
     {
       p.showTitle(Styles.humans_win_title);
-      Util.playSound(p, Sound.BLOCK_BEACON_ACTIVATE, 1f, 1f);
+      Utils.playSound(p, Sound.BLOCK_BEACON_ACTIVATE, 1f, 1f);
     }
   }
 

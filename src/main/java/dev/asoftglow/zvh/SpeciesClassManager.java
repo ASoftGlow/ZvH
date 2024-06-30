@@ -18,6 +18,9 @@ import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
 
+import dev.asoftglow.zvh.util.Logger;
+import dev.asoftglow.zvh.util.SerializeInventory;
+
 public class SpeciesClassManager
 {
   private static final LinkedHashMap<String, ZombieClass> zombie_classes = new LinkedHashMap<>();

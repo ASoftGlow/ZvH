@@ -1,4 +1,4 @@
-package dev.asoftglow.zvh.commands;
+package dev.asoftglow.zvh.menus;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -11,7 +11,7 @@ import org.bukkit.entity.Player;
 import dev.asoftglow.zvh.MapControl;
 import dev.asoftglow.zvh.ZvH;
 import dev.asoftglow.zvh.MapControl.MapFeature;
-import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.util.Utils;
 import dev.asoftglow.zvh.util.guilib.VotingMenu;
 import xyz.janboerman.guilib.api.ItemBuilder;
 
@@ -45,13 +45,13 @@ public abstract class MapModifierMenu
     menu = new VotingMenu<>(ZvH.singleton, 9, "Vote for a Modifier", winner_i -> {
       if (winner_i == null)
       {
-        Util.sendServerMsg("Nothing won.");
+        Utils.sendServerMsg("Nothing won.");
         MapControl.chooseMap(menu.getPlayers().size());
 
       } else
       {
         var winner = feats.get(winner_i.intValue());
-        Util.sendServerMsg(winner.name + " had the most votes.");
+        Utils.sendServerMsg(winner.name + " had the most votes.");
 
         MapControl.chooseMapSize(menu.getPlayers().size());
         MapControl.current_feature = winner;

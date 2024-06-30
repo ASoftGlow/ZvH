@@ -16,11 +16,14 @@ import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 
-import dev.asoftglow.zvh.commands.ClassSelectionMenu;
-import dev.asoftglow.zvh.commands.MapModifierMenu;
 import dev.asoftglow.zvh.commands.MusicCommands;
 import dev.asoftglow.zvh.commands.SpeciesClassCommands;
-import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.menus.ClassSelectionMenu;
+import dev.asoftglow.zvh.menus.CosmeticsMenu;
+import dev.asoftglow.zvh.menus.MapModifierMenu;
+import dev.asoftglow.zvh.menus.ShopMenu;
+import dev.asoftglow.zvh.util.Logger;
+import dev.asoftglow.zvh.util.Utils;
 import net.kyori.adventure.inventory.Book;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -88,8 +91,8 @@ public class ZvH extends JavaPlugin
     Game.clean();
     // wait until server starts ticking
     Bukkit.getScheduler().runTaskLater(this, () -> {
-      lvlLeaderboard = Util.findEntity("LevelLeaderboard", TextDisplay.class, world);
-      coinLeaderboard = Util.findEntity("CoinLeaderboard", TextDisplay.class, world);
+      lvlLeaderboard = Utils.findEntity("LevelLeaderboard", TextDisplay.class, world);
+      coinLeaderboard = Utils.findEntity("CoinLeaderboard", TextDisplay.class, world);
       updateLeaderboards();
     }, 10);
 
@@ -125,9 +128,10 @@ public class ZvH extends JavaPlugin
     pm.registerEvents(new GuardListener(), this);
     pm.registerEvents(new Moderation(), this);
 
-    Bukkit.getScheduler().runTaskTimer(this, () -> {
-      Util.sendServerMsg(reminderMsg);
-    }, 40, 20 * 60 * 10);
+    // reminder message
+    Bukkit.getScheduler().runTaskTimer(this, () -> Utils.sendServerMsg(reminderMsg), 40, 20 * 60 * 10);
+
+    // Discord cmd handler
     Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
       if (CMD != null)
       {
@@ -135,6 +139,8 @@ public class ZvH extends JavaPlugin
         CMD = null;
       }
     }, 40, 1);
+
+    Cosmetics.Particles.start();
 
     saveDefaultConfig();
   }
@@ -251,7 +257,10 @@ public class ZvH extends JavaPlugin
           return true;
 
         case "die":
-          player.setHealth(0d);
+          if (Game.zombies.contains(player))
+          {
+            player.setHealth(0d);
+          }
           return true;
 
         case "class":
@@ -317,6 +326,10 @@ public class ZvH extends JavaPlugin
             }
             pl.openBook(Book.book(Component.text("Stats"), Component.text("ASoftGlow"), page));
           });
+          return true;
+
+        case "cosmetics":
+          CosmeticsMenu.showTo(player);
           return true;
 
         default:

@@ -17,8 +17,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
-import dev.asoftglow.zvh.commands.ClassSelectionMenu;
-import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.menus.ClassSelectionMenu;
+import dev.asoftglow.zvh.menus.ShopMenu;
+import dev.asoftglow.zvh.util.Utils;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -209,15 +210,15 @@ public class MiscListener implements Listener
 
       } else if (e.getItem().equals(CustomItems.tracker))
       {
-        var nearest = Util.getClosestTeamMember(player, Game.humans);
+        var nearest = Utils.getClosestTeamMember(player, Game.humans);
         if (nearest == null)
         {
-          Util.playSound(player, Sound.BLOCK_REDSTONE_TORCH_BURNOUT, 0.8f, 1f);
+          Utils.playSound(player, Sound.BLOCK_REDSTONE_TORCH_BURNOUT, 0.8f, 1f);
           player.sendActionBar(Component.text("Tracker calibration error", NamedTextColor.RED));
           return;
         }
         player.setCompassTarget(nearest.getLocation());
-        Util.playSound(player, Sound.BLOCK_PISTON_CONTRACT, 0.8f, 1.5f);
+        Utils.playSound(player, Sound.BLOCK_PISTON_CONTRACT, 0.8f, 1.5f);
         player.sendActionBar(Component.text("Calibrated tracker", NamedTextColor.GRAY));
         player.swingHand(e.getHand());
 
@@ -272,7 +273,7 @@ public class MiscListener implements Listener
               removeLifeTask(player, getTaskId());
               return;
             }
-            Util.playSoundAllAt(player, Sound.ENTITY_CREEPER_PRIMED, 1f, (float) i / 2f);
+            Utils.playSoundAllAt(player, Sound.ENTITY_CREEPER_PRIMED, 1f, (float) i / 2f);
             player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 10, 0));
             player.sendActionBar(Component.text("Exploding in ", NamedTextColor.RED).append(Component.text(i)));
           }
@@ -320,7 +321,7 @@ public class MiscListener implements Listener
       // max(0, random(0 to 6) - 3)^2
       if (v > 0)
       {
-        Util.playSoundAllAt(e.getPlayer(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 0.5f + (float) v / (float) range);
+        Utils.playSoundAllAt(e.getPlayer(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 0.5f + (float) v / (float) range);
         Rewards.changeCoins(e.getPlayer(), v * v, "fishing");
       } else
       {

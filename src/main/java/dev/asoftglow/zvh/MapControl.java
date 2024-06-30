@@ -26,6 +26,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Slime;
 import org.bukkit.util.Vector;
 
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeMap;
+import com.google.common.collect.TreeRangeMap;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.extension.input.ParserContext;
@@ -46,9 +49,8 @@ import com.sk89q.worldedit.session.ClipboardHolder;
 import com.sk89q.worldedit.world.block.BaseBlock;
 
 import lombok.Getter;
-
-import dev.asoftglow.zvh.commands.MapModifierMenu.MapModifier;
-import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.menus.MapModifierMenu.MapModifier;
+import dev.asoftglow.zvh.util.Logger;
 import dev.asoftglow.zvh.util.WeightedArray;
 
 @SuppressWarnings("null")
@@ -87,7 +89,7 @@ public abstract class MapControl
     }
   }
 
-  public static final record MapSize(MapBounds bounds, int min_players, Vector zombieSpawn, Vector humanSpawn)
+  public static final record MapSize(MapBounds bounds, Vector zombieSpawn, Vector humanSpawn)
   {
   }
 
@@ -118,8 +120,14 @@ public abstract class MapControl
   private static MapBounds b;
   static MapSize last_size = null;
 
-  final static MapSize[] mapSizes =
-  { new MapSize(new MapBounds(-47, 16, 52, 68, 1, 30), 1, new Vector(36, 2, 42), new Vector(-37, 2, 42)) };
+  private final static RangeMap<Integer, MapSize> mapSizes = TreeRangeMap.create();
+  static
+  {
+    mapSizes.put(Range.closedOpen(1, 3),
+        new MapSize(new MapBounds(-32, 16, 37, 68, 1, 30), new Vector(21, 2, 42), new Vector(-22, 2, 42)));
+    mapSizes.put(Range.atLeast(3),
+        new MapSize(new MapBounds(-47, 16, 52, 68, 1, 30), new Vector(36, 2, 42), new Vector(-37, 2, 42)));
+  }
   final static MapFeature[] features = new MapFeature[]
   { //
       new MapFeature("Bridge", "A giant bridge located in the center", Material.LADDER, 0.15f, 3),
@@ -128,7 +136,7 @@ public abstract class MapControl
       new MapFeature("Pillars", "Tall, square pillars randomly spread across the map", Material.QUARTZ_PILLAR, 0.25f),
       new MapFeature("Grid", "A grid spanning across the sky", Material.OAK_TRAPDOOR, 0.15f, 3),
       new MapFeature("Scatter", "Random blocks in the air", Material.MELON_SEEDS, 0.12f),
-      new MapFeature(null, null, null, 0.3f)
+      new MapFeature("Nothing", "The default plane of existence", Material.STRUCTURE_VOID, 0.3f)
       /**/ };
   static final File fortress_schem = ZvH.singleton.getDataFolder().toPath().resolve("schematics/fort.schem").toFile();
   static final File bridge_schem = ZvH.singleton.getDataFolder().toPath().resolve("schematics/bridge.schem").toFile();
@@ -168,23 +176,18 @@ public abstract class MapControl
 
   public static void chooseMapSize(int playerCount)
   {
-    var sizes = new ArrayList<>(Arrays.asList(mapSizes));
-    var it = sizes.iterator();
-    while (it.hasNext())
+    current_size = mapSizes.get(playerCount);
+    if (current_size == null)
     {
-      if (playerCount < it.next().min_players)
-        it.remove();
+      throw new IllegalArgumentException("No map size for given player count");
     }
-    if (sizes.size() == 0)
-      throw new IllegalArgumentException("No maps for such few players");
-    current_size = Util.pickRandom(sizes);
   }
 
   public static void chooseMap(int playerCount)
   {
     chooseMapSize(playerCount);
     current_feature = WeightedArray.getRandomFrom(getFeatures(playerCount));
-    if (current_feature.name == null)
+    if (current_feature.name == "Nothing")
       current_feature = null;
     else
       Logger.Get().info("Feature: " + current_feature.name);
@@ -206,6 +209,19 @@ public abstract class MapControl
   public static Location getLocation(World world, Vector pos)
   {
     return new Location(world, pos.getX(), pos.getY(), pos.getZ());
+  }
+
+  private static void resetSpawns()
+  {
+    final var zombie_center = BlockVector3.at(current_size.zombieSpawn.getBlockX(),
+        current_size.zombieSpawn.getBlockY(), current_size.zombieSpawn.getBlockZ());
+    ZvH.editSession.setBlocks((Region) new CylinderRegion(zombie_center, Vector2.at(3, 3), b.y + 1, b.y + 4),
+        BukkitAdapter.asBlockType(Material.AIR));
+
+    final var human_center = BlockVector3.at(current_size.humanSpawn.getBlockX(), current_size.humanSpawn.getBlockY(),
+        current_size.humanSpawn.getBlockZ());
+    ZvH.editSession.setBlocks((Region) new CylinderRegion(human_center, Vector2.at(3, 3), b.y + 1, b.y + 4),
+        BukkitAdapter.asBlockType(Material.AIR));
   }
 
   public static void resetBorders()
@@ -249,16 +265,28 @@ public abstract class MapControl
     slime.spawnAt(slime.getLocation());
   }
 
-  static void resetMap()
+  private static void clearBuildingSpace()
   {
-    b = current_size.bounds;
-
-    // Clear building space
     ZvH.editSession.setBlocks(
         (Region) new CuboidRegion(BlockVector3.at(b.x1 + 1, b.y + 1, b.z1 + 1),
             BlockVector3.at(b.x2 - 1, b.y + b.h - 1, b.z2 - 1)),
         BukkitAdapter.asBlockType(Material.AIR).getDefaultState());
-    ZvH.editSession.flushQueue();
+  }
+
+  static void resetMap()
+  {
+    if (last_size != null)
+    {
+      // clear past junk
+      clearBuildingSpace();
+      b = current_size.bounds;
+
+    } else
+    {
+      // there is no past junk (that we know about)
+      b = current_size.bounds;
+      clearBuildingSpace();
+    }
 
     if (last_size != current_size)
     {
@@ -307,16 +335,7 @@ public abstract class MapControl
                       BlockVector3.at(b.x1 + x_slide + psize + 1, b.y + height, b.z1 + z_slide + psize + 1)),
                   pillars_p);
         }
-
-        final var zombie_center = BlockVector3.at(current_size.zombieSpawn.getBlockX(),
-            current_size.zombieSpawn.getBlockY(), current_size.zombieSpawn.getBlockZ());
-        ZvH.editSession.setBlocks((Region) new CylinderRegion(zombie_center, Vector2.at(3, 3), b.y + 1, b.y + 4),
-            BukkitAdapter.asBlockType(Material.AIR));
-
-        final var human_center = BlockVector3.at(current_size.humanSpawn.getBlockX(),
-            current_size.humanSpawn.getBlockY(), current_size.humanSpawn.getBlockZ());
-        ZvH.editSession.setBlocks((Region) new CylinderRegion(human_center, Vector2.at(3, 3), b.y + 1, b.y + 4),
-            BukkitAdapter.asBlockType(Material.AIR));
+        resetSpawns();
         break;
 
       case "Fortress":
@@ -393,11 +412,11 @@ public abstract class MapControl
       case "Scatter":
         ZvH.editSession.setBlocks((Region) new CuboidRegion(BlockVector3.at(b.x1 + 1, b.y + 1, b.z1 + 1),
             BlockVector3.at(b.x2 - 1, b.y + b.h - 1, b.z2 - 1)), scatter_p);
-        ZvH.editSession.flushQueue();
+        resetSpawns();
         break;
       }
-      ZvH.editSession.flushQueue();
     }
+    ZvH.editSession.flushQueue();
 
     for (var e : ZvH.world.getEntitiesByClasses(Item.class, Arrow.class, TNTPrimed.class, ThrownPotion.class,
         FallingBlock.class))

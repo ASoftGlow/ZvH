@@ -1,4 +1,4 @@
-package dev.asoftglow.zvh;
+package dev.asoftglow.zvh.menus;
 
 import java.util.function.BiPredicate;
 
@@ -10,7 +10,15 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.Cosmetics;
+import dev.asoftglow.zvh.CustomItems;
+import dev.asoftglow.zvh.Database;
+import dev.asoftglow.zvh.Game;
+import dev.asoftglow.zvh.Rewards;
+import dev.asoftglow.zvh.Styles;
+import dev.asoftglow.zvh.ZvH;
+import dev.asoftglow.zvh.Game.State;
+import dev.asoftglow.zvh.util.Utils;
 import dev.asoftglow.zvh.util.guilib.CloseButton;
 import dev.asoftglow.zvh.util.guilib.PredicateButton;
 import net.kyori.adventure.text.Component;
@@ -55,21 +63,21 @@ public class ShopMenu extends MenuHolder<ZvH>
       ItemStack is = item.item;
       if (item.item.getType() == Material.GRAVEL)
       {
-        is = new ItemStack(CustomItems.fall_blocks[0], is.getAmount());
+        is = new ItemStack(Cosmetics.Blocks.getFallMaterialFor(player), is.getAmount());
 
       } else if (item.item.getType() == Material.LIGHT_GRAY_WOOL)
       {
-        is = new ItemStack(CustomItems.solid_blocks[0], is.getAmount());
+        is = new ItemStack(Cosmetics.Blocks.getSolidMaterialFor(player), is.getAmount());
       }
 
       player.getInventory().addItem(is);
 
       h.updateItems();
-      Util.playSound(player, Sound.UI_BUTTON_CLICK, 0.9f, 1f);
+      Utils.playSound(player, Sound.UI_BUTTON_CLICK, 0.9f, 1f);
 
     } else
     {
-      Util.playSound(player, Sound.ENTITY_VILLAGER_NO, 0.9f, 1f);
+      Utils.playSound(player, Sound.ENTITY_VILLAGER_NO, 0.9f, 1f);
     }
     return true;
   };
@@ -126,7 +134,7 @@ public class ShopMenu extends MenuHolder<ZvH>
 
       verifyDisplayName(item, meta);
       meta.displayName(meta.displayName().style(isAffordable ? Styles.affordable_style : Styles.too_expensive_style));
-      Util.addLore(meta, Component.text("Costs ", NamedTextColor.GRAY)
+      Utils.addLore(meta, Component.text("Costs ", NamedTextColor.GRAY)
           .append(Component.text(items[i].price, NamedTextColor.GOLD)).decoration(TextDecoration.ITALIC, false));
       item.setItemMeta(meta);
 

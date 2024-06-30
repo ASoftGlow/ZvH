@@ -1,4 +1,4 @@
-package dev.asoftglow.zvh;
+package dev.asoftglow.zvh.util;
 
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;

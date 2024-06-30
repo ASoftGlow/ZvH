@@ -17,7 +17,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 import dev.asoftglow.zvh.ZvH;
-import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.util.Utils;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import xyz.janboerman.guilib.api.GuiInventoryHolder;
@@ -124,7 +124,7 @@ public class VotingMenu<P extends Plugin>
     {
       p.closeInventory();
     }
-    var winner = Util.getMaxI(scores);
+    var winner = Utils.getMaxI(scores);
     callback.accept(scores[winner] == 0 ? null : Integer.valueOf(winner));
     callback2.run();
   }

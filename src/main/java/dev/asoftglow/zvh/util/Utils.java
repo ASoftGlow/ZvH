@@ -25,7 +25,7 @@ import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
-public abstract class Util
+public abstract class Utils
 {
   private static final Style msg_style = Style.style(NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD);
   private static final PlainTextComponentSerializer plainSerializer = PlainTextComponentSerializer.plainText();

@@ -6,7 +6,7 @@ import java.util.HashMap;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
-import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.util.Utils;
 import fr.mrmicky.fastboard.adventure.FastBoard;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -72,7 +72,7 @@ public abstract class SideBoard
     for (var fb : boards.values())
     {
       fb.updateLine(1, Component.text("Starting in " + t));
-      Util.playSound(fb.getPlayer(), Sound.BLOCK_NOTE_BLOCK_BIT, 0.8f, 2f);
+      Utils.playSound(fb.getPlayer(), Sound.BLOCK_NOTE_BLOCK_BIT, 0.8f, 2f);
     }
   }
 

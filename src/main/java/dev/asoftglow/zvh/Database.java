@@ -18,6 +18,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
+import dev.asoftglow.zvh.util.Logger;
+
 public abstract class Database
 {
   static private final Map<String, Map<Player, MutableInt>> caches = new HashMap<>(4);
@@ -28,11 +30,16 @@ public abstract class Database
     caches.put("coins", new HashMap<>());
     caches.put("xp", new HashMap<>());
     caches.put("lvl", new HashMap<>());
+    caches.put("cos_blk", new HashMap<>());
+    caches.put("cos_blk_own", new HashMap<>());
+    caches.put("cos_par", new HashMap<>());
+    caches.put("cos_par_own", new HashMap<>());
   }
   /**
    * Last known
    */
   static private String url, name, username, password;
+  public static final Map<Player, Integer> cos_particles = new HashMap<>();
 
   public enum AsyncTarget
   {
@@ -264,6 +271,30 @@ public abstract class Database
       return;
 
     try (var stmt = con.prepareStatement("UPDATE PlayerStats SET " + stat + " = " + stat + " + ? WHERE uuid = ?"))
+    {
+      setupPreparedStatement(stmt);
+
+      stmt.setString(2, player.getUniqueId().toString());
+      stmt.setInt(1, amount);
+      stmt.executeUpdate();
+
+    } catch (SQLException e)
+    {
+      handleSQLException(e, player);
+    }
+  }
+
+  public static void setIntStat(Player player, String stat, int amount)
+  {
+    var cached_stat = caches.get(stat);
+    if (cached_stat != null)
+    {
+      cached_stat.get(player).setValue(amount);
+    }
+    if (!verifyConnection())
+      return;
+
+    try (var stmt = con.prepareStatement("UPDATE PlayerStats SET " + stat + " = ? WHERE uuid = ?"))
     {
       setupPreparedStatement(stmt);
 
@@ -545,14 +576,12 @@ public abstract class Database
   {
     if (!verifyConnection())
     {
-      caches.get("coins").put(player, new MutableInt(Rewards.COINS_JOIN));
-      caches.get("lvl").put(player, new MutableInt(0));
-      caches.get("xp").put(player, new MutableInt(0));
+      putDefaultsFor(player);
       player.sendMessage("There was an issue with fetching your stats. It has been assumed that you new.");
       return;
     }
 
-    try (var stmt = con.prepareStatement("SELECT coins, lvl, xp FROM PlayerStats WHERE uuid = ?"))
+    try (var stmt = con.prepareStatement("SELECT coins, lvl, xp, cos_blk, cos_blk_own, cos_par, cos_par_own FROM PlayerStats WHERE uuid = ?"))
     {
       setupPreparedStatement(stmt);
 
@@ -564,12 +593,20 @@ public abstract class Database
         caches.get("coins").put(player, new MutableInt(result.getInt(1)));
         caches.get("lvl").put(player, new MutableInt(result.getInt(2)));
         caches.get("xp").put(player, new MutableInt(result.getInt(3)));
+        caches.get("cos_blk").put(player, new MutableInt(result.getInt(4)));
+        caches.get("cos_blk_own").put(player, new MutableInt(result.getInt(5)));
+        caches.get("cos_par").put(player, new MutableInt(result.getInt(6)));
+        caches.get("cos_par_own").put(player, new MutableInt(result.getInt(7)));
+
+        if (result.getInt(6) > 0)
+        {
+          cos_particles.put(player, result.getInt(6));
+        }
+
       } else
       {
         addPlayer(player);
-        caches.get("coins").put(player, new MutableInt(Rewards.COINS_JOIN));
-        caches.get("lvl").put(player, new MutableInt(0));
-        caches.get("xp").put(player, new MutableInt(0));
+        putDefaultsFor(player);
       }
 
     } catch (SQLException e)
@@ -579,12 +616,24 @@ public abstract class Database
     }
   }
 
+  private static void putDefaultsFor(Player player)
+  {
+    caches.get("coins").put(player, new MutableInt(Rewards.COINS_JOIN));
+    caches.get("lvl").put(player, new MutableInt(0));
+    caches.get("xp").put(player, new MutableInt(0));
+    caches.get("cos_blk").put(player, new MutableInt(Cosmetics.Blocks.DEFAULT));
+    caches.get("cos_blk_own").put(player, new MutableInt(Cosmetics.Blocks.PackMasks.DEFAULT));
+    caches.get("cos_par").put(player, new MutableInt(Cosmetics.Particles.DEFAULT));
+    caches.get("cos_par_own").put(player, new MutableInt(0));
+  }
+
   public static void cleanCacheFor(Player player)
   {
     for (var c : caches.values())
     {
       c.remove(player);
     }
+    cos_particles.remove(player);
   }
 
   private static boolean verifyConnection()

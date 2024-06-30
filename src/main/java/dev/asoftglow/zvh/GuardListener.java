@@ -61,8 +61,8 @@ public class GuardListener implements Listener
   {
     explodeWhitelist.add(Material.LADDER);
     explodeWhitelist.add(Material.COBWEB);
-    explodeWhitelist.addAll(Arrays.asList(CustomItems.fall_blocks));
-    explodeWhitelist.addAll(Arrays.asList(CustomItems.solid_blocks));
+    explodeWhitelist.addAll(Arrays.asList(Cosmetics.Blocks.fall_materials));
+    explodeWhitelist.addAll(Arrays.asList(Cosmetics.Blocks.solid_materials));
   }
 
   @EventHandler
@@ -152,18 +152,16 @@ public class GuardListener implements Listener
   @EventHandler
   public void onPlaced(BlockPlaceEvent e)
   {
-    if (e.getPlayer() == null)
-    {
+    if (Database.getCachedIntStat(e.getPlayer(), "cos_blk").orElse(0) == Cosmetics.Blocks.RAINBOW)
       if (e.getBlock().getType() == Material.GRAVEL)
       {
-        e.getBlock()
-            .setType(CustomItems.fall_blocks[ThreadLocalRandom.current().nextInt(1, CustomItems.fall_blocks.length)]);
+        e.getBlock().setType(Cosmetics.Blocks.fall_materials[ThreadLocalRandom.current().nextInt(1,
+            Cosmetics.Blocks.fall_materials.length)]);
 
       } else if (e.getBlock().getType() == Material.LIGHT_GRAY_WOOL)
       {
-        e.getBlock()
-            .setType(CustomItems.solid_blocks[ThreadLocalRandom.current().nextInt(1, CustomItems.solid_blocks.length)]);
+        e.getBlock().setType(Cosmetics.Blocks.solid_materials[ThreadLocalRandom.current().nextInt(1,
+            Cosmetics.Blocks.solid_materials.length)]);
       }
-    }
   }
 }

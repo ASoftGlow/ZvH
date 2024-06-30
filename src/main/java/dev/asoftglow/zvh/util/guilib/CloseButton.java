@@ -6,7 +6,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
-import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.util.Utils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -31,6 +31,6 @@ public class CloseButton<P extends Plugin> extends ItemButton<MenuHolder<P>>
   public final void onClick(MenuHolder<P> holder, InventoryClickEvent event)
   {
     holder.getPlugin().getServer().getScheduler().runTask(holder.getPlugin(), event.getView()::close);
-    Util.playSound(event.getWhoClicked(), Sound.UI_BUTTON_CLICK, 0.9f, 1f);
+    Utils.playSound(event.getWhoClicked(), Sound.UI_BUTTON_CLICK, 0.9f, 1f);
   }
 }

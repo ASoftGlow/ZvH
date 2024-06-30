@@ -8,13 +8,14 @@ import java.util.UUID;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.bukkit.Bukkit;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 
 import dev.asoftglow.zvh.util.LimitedStack;
-import dev.asoftglow.zvh.util.Util;
+import dev.asoftglow.zvh.util.Utils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -45,7 +46,7 @@ public abstract class Combat
         Rewards.S_changeCoins(killer, Rewards.COINS_HUMAN_KILL, "human kill");
         Database.S_changeXp(killer, Rewards.XP_HUMAN_KILL);
 
-        Util.playSoundAllAt(killer, Sound.ENTITY_ZOMBIE_INFECT, 0.9f, 1.2f);
+        Utils.playSoundAllAt(killer, Sound.ENTITY_ZOMBIE_INFECT, 0.9f, 1.2f);
 
         final boolean game_ending = Game.humans.contains(player) && Game.humans.size() == 1;
         if (Game.zombies.size() > 1 && !game_ending)
@@ -91,6 +92,7 @@ public abstract class Combat
         killer.setHealth(Math.min(
             killer.getHealth() + (wasProjectile ? Rewards.HEALTH_ZOMBIE_KILL_PROJECTILE : Rewards.HEALTH_ZOMBIE_KILL),
             killer.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue()));
+        killer.getWorld().spawnParticle(Particle.HEART, killer.getLocation(), 1);
         killer.getAdvancementProgress(ZvH.first_blood).awardCriteria("killz");
       }
 
@@ -100,7 +102,7 @@ public abstract class Combat
       {
         assisters.remove(killer.getUniqueId());
         assist_history.remove(player.getUniqueId());
-        var players = Util.getPlayers(assisters);
+        var players = Utils.getPlayers(assisters);
 
         Rewards.S_changeCoins(players, Rewards.COINS_HUMAN_ASSIST, "human assist");
         Database.S_changeXp(players, Rewards.XP_HUMAN_ASSIST);
