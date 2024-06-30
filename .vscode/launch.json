@@ -3,10 +3,17 @@
   "configurations": [
     {
       "type": "java",
-      "name": "Bukkit", // you can put anything here
+      "name": "Maze",
+      "request": "launch",
+      "mainClass": "dev.asoftglow.zvh.Maze",
+      "projectName": "ZvH"
+    },
+    {
+      "type": "java",
+      "name": "Bukkit",
       "request": "attach",
       "hostName": "localhost",
-      "port": 1000 // choose any port here, but put the same in tasks.json
+      "port": 1000
     }
   ]
 }
