@@ -16,7 +16,6 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
-import dev.asoftglow.zvh.ZvH;
 import dev.asoftglow.zvh.util.Utils;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
@@ -35,7 +34,7 @@ public class VotingMenu<P extends Plugin>
   private int inital_time = 0;
   private MutableInt time = null;
   private Collection<Player> players;
-  boolean canLeave = false;
+  boolean ending = false;
 
   public Collection<Player> getPlayers()
   {
@@ -62,7 +61,6 @@ public class VotingMenu<P extends Plugin>
 
   public void reset()
   {
-    canLeave = false;
     Arrays.fill(scores, 0);
     if (isTimed())
     {
@@ -109,7 +107,7 @@ public class VotingMenu<P extends Plugin>
           var inv = p.getOpenInventory();
           // not correct inventory
           if (inv.getTopInventory().getSize() != scores.length)
-            return;
+            continue;
           inv.setTitle(inv.getOriginalTitle() + " (" + time.toString() + ")");
         }
         time.subtract(1);
@@ -119,7 +117,7 @@ public class VotingMenu<P extends Plugin>
 
   private void end()
   {
-    canLeave = true;
+    ending = true;
     for (var p : getPlayers())
     {
       p.closeInventory();
@@ -175,7 +173,7 @@ public class VotingMenu<P extends Plugin>
 
     void selectButton(int slot)
     {
-      if (selected > 0)
+      if (selected >= 0)
       {
         unselectButton();
       } else
@@ -187,9 +185,18 @@ public class VotingMenu<P extends Plugin>
       getInventory().setItem(slot, items[slot]);
       scores[slot]++;
 
-      if (!isTimed() && sum == getPlayers().size())
+      if (sum == getPlayers().size())
       {
-        end();
+        if (isTimed())
+        {
+          if (time.intValue() > 3)
+          {
+            time.setValue(3);
+          }
+        } else
+        {
+          end();
+        }
       }
       updateScore(slot);
     }
@@ -205,9 +212,9 @@ public class VotingMenu<P extends Plugin>
     @Override
     public void onClose(InventoryCloseEvent event)
     {
-      if (!canLeave)
+      if (!ending)
       {
-        Bukkit.getScheduler().runTask(ZvH.singleton, () -> event.getPlayer().openInventory(event.getView()));
+        players.remove(event.getPlayer());
       }
     }
   }

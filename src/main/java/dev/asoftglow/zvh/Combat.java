@@ -51,7 +51,6 @@ public abstract class Combat
         final boolean game_ending = Game.humans.contains(player) && Game.humans.size() == 1;
         if (Game.zombies.size() > 1 && !game_ending)
         {
-          // FIXME
           // Reviving
 
           final var ceiling = 3;
@@ -150,6 +149,7 @@ public abstract class Combat
 
   public static void reset()
   {
+    human_kills.clear();
     assist_history.clear();
     kills.clear();
   }

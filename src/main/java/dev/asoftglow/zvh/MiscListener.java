@@ -3,6 +3,7 @@ package dev.asoftglow.zvh;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerEvent;
@@ -77,7 +78,7 @@ public class MiscListener implements Listener
     var l = life_tasks.get(player);
     if (l != null)
     {
-      l.remove(task_id);
+      l.remove(Integer.valueOf(task_id));
     }
   }
 
@@ -139,6 +140,10 @@ public class MiscListener implements Listener
       var damager = e.getDamageSource().getCausingEntity();
       if (damager == null || !(damager instanceof Player))
         return;
+      if (damager.getLocation().distanceSquared(player.getLocation()) < 16)
+      {
+        e.setDamage(e.getDamage() / 2);
+      }
       Combat.handleDamage(player, (Player) damager);
     }
   }
@@ -330,6 +335,26 @@ public class MiscListener implements Listener
       break;
     default:
       break;
+    }
+  }
+
+  @EventHandler
+  public void onItemPickUp(EntityPickupItemEvent e)
+  {
+    if (e.getEntityType() == EntityType.PLAYER)
+    {
+      final var player = (Player) e.getEntity();
+      if (Cosmetics.Blocks.isMaterial(Cosmetics.Blocks.fall_materials, e.getItem()))
+      {
+        e.getItem().setItemStack(
+            new ItemStack(Cosmetics.Blocks.fall_materials[Database.getCachedIntStat(player, "cos_blk").orElse(0)],
+                e.getItem().getItemStack().getAmount()));
+      } else if (Cosmetics.Blocks.isMaterial(Cosmetics.Blocks.solid_materials, e.getItem()))
+      {
+        e.getItem().setItemStack(
+            new ItemStack(Cosmetics.Blocks.solid_materials[Database.getCachedIntStat(player, "cos_blk").orElse(0)],
+                e.getItem().getItemStack().getAmount()));
+      }
     }
   }
 }

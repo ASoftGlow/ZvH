@@ -17,7 +17,6 @@ import dev.asoftglow.zvh.Game;
 import dev.asoftglow.zvh.Rewards;
 import dev.asoftglow.zvh.Styles;
 import dev.asoftglow.zvh.ZvH;
-import dev.asoftglow.zvh.Game.State;
 import dev.asoftglow.zvh.util.Utils;
 import dev.asoftglow.zvh.util.guilib.CloseButton;
 import dev.asoftglow.zvh.util.guilib.PredicateButton;

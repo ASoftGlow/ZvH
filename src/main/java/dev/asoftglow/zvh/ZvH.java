@@ -52,6 +52,7 @@ public class ZvH extends JavaPlugin
   public static String CMD = null;
 
   public static final String discordLink = "https://discord.gg/mzj4EvBbhM";
+  public static final String storeLink = "https://store.zvh.asoftglow.dev";
   public static final PlainTextComponentSerializer plainSerializer = PlainTextComponentSerializer.plainText();
   private static final TextComponent discordMsgPrefix = Component.text("[Discord]").decorate(TextDecoration.BOLD)
       .hoverEvent(HoverEvent.showText(Component.text("Sent from Discord"))).color(NamedTextColor.BLUE);
@@ -330,6 +331,10 @@ public class ZvH extends JavaPlugin
 
         case "cosmetics":
           CosmeticsMenu.showTo(player);
+          return true;
+
+        case "vote":
+          MapModifierMenu.showTo(player);
           return true;
 
         default:

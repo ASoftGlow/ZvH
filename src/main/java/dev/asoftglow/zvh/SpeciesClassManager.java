@@ -86,7 +86,8 @@ public class SpeciesClassManager
     registerZClass("Baby_Zombie", Material.CARROT, 4,
         new PotionEffect(PotionEffectType.SPEED, -1, 0, false, false, false),
         new PotionEffect(PotionEffectType.FAST_DIGGING, -1, 0));
-    registerZClass("Skeleton", Material.SKELETON_SKULL, 5, new PotionEffect(PotionEffectType.WEAKNESS, -1, 0));
+    registerZClass("Skeleton", Material.SKELETON_SKULL, 5, new PotionEffect(PotionEffectType.WEAKNESS, -1, 1),
+        new PotionEffect(PotionEffectType.SLOW, -1, 0));
     registerZClass("Slime", Material.SLIME_BALL, 6,
         new PotionEffect(PotionEffectType.JUMP, -1, 2, false, false, false));
     registerZClass("Witch", Material.POTION, 8);

@@ -3,6 +3,7 @@ package dev.asoftglow.zvh.menus;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.lang.Runnable;
 
 import org.bukkit.Material;
@@ -63,19 +64,22 @@ public abstract class MapModifierMenu
 
   public static void showTo(Collection<Player> players, Runnable callback)
   {
+    final MapModifier nothing = MapControl.features[MapControl.features.length - 1];
     feats = MapControl.getFeatures(players.size());
-    int i = 0;
-    for (MapModifier modifier : feats)
+    feats.removeIf(f -> f == nothing);
+    Collections.shuffle(feats);
+
+    int i;
+    for (i = 0; i < feats.size() && i < 3; i++)
     {
-      if (modifier.getName() == null)
-        continue;
+      var item = new ItemBuilder(feats.get(i).getIcon()).name("§r§f" + feats.get(i).getName())
+          .lore("§r§8" + feats.get(i).getDescription(), feats.get(i).getType()).build();
 
-      var item = new ItemBuilder(modifier.getIcon()).name("§r§f" + modifier.getName())
-          .lore("§r§8" + modifier.getDescription(), modifier.getType()).build();
-
-      menu.setButton(i++, item);
+      menu.setButton(i, item);
     }
-    while (i < 9)
+    menu.setButton(i++, new ItemBuilder(nothing.getIcon()).name("§r§f" + nothing.getName())
+        .lore("§r§8" + nothing.getDescription(), nothing.getType()).build());
+    while (i < 4)
     {
       menu.setButton(i++, null);
     }
@@ -87,6 +91,6 @@ public abstract class MapModifierMenu
   {
     var list = new ArrayList<Player>();
     list.add(player);
-    menu.showTo(list);
+    showTo(list, () -> {});
   }
 }

@@ -44,3 +44,4 @@ commands:
     permission: admin.manage.serverpermission
   cosmetics:
     desription: Customize your in-game cosmetics
+  vote:

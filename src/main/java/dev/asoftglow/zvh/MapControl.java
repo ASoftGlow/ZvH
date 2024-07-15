@@ -123,12 +123,12 @@ public abstract class MapControl
   private final static RangeMap<Integer, MapSize> mapSizes = TreeRangeMap.create();
   static
   {
-    mapSizes.put(Range.closedOpen(1, 3),
-        new MapSize(new MapBounds(-32, 16, 37, 68, 1, 30), new Vector(21, 2, 42), new Vector(-22, 2, 42)));
-    mapSizes.put(Range.atLeast(3),
-        new MapSize(new MapBounds(-47, 16, 52, 68, 1, 30), new Vector(36, 2, 42), new Vector(-37, 2, 42)));
+    mapSizes.put(Range.closed(1, 3),
+        new MapSize(new MapBounds(-32, 16, 37, 68, 1, 30), new Vector(27, 2, 42), new Vector(-22, 2, 42)));
+    mapSizes.put(Range.greaterThan(3),
+        new MapSize(new MapBounds(-47, 16, 52, 68, 1, 30), new Vector(42, 2, 42), new Vector(-37, 2, 42)));
   }
-  final static MapFeature[] features = new MapFeature[]
+  public final static MapFeature[] features = new MapFeature[]
   { //
       new MapFeature("Bridge", "A giant bridge located in the center", Material.LADDER, 0.15f, 3),
       new MapFeature("Fortress", "A giant fortress located in the center", Material.IRON_DOOR, 0.1f),
@@ -275,18 +275,17 @@ public abstract class MapControl
 
   static void resetMap()
   {
-    if (last_size != null)
+    if (last_size != null && last_size != current_size)
     {
       // clear past junk
       clearBuildingSpace();
-      b = current_size.bounds;
 
-    } else
-    {
-      // there is no past junk (that we know about)
-      b = current_size.bounds;
-      clearBuildingSpace();
+      ZvH.editSession.setBlocks(
+          (Region) new CuboidRegion(BlockVector3.at(b.x1 + 1, b.y, b.z1 + 1), BlockVector3.at(b.x2 - 1, b.y, b.z2 - 1)),
+          BukkitAdapter.asBlockType(Material.AIR).getDefaultState());
     }
+    b = current_size.bounds;
+    clearBuildingSpace();
 
     if (last_size != current_size)
     {
@@ -398,9 +397,9 @@ public abstract class MapControl
         break;
 
       case "Grid":
-        final int size = 7;
-        final var cb = new CuboidRegion(BlockVector3.at(b.x1 + 1, b.y + b.h - 11 - 1, b.z1 + 1),
-            BlockVector3.at(b.x2 - 1, b.y + b.h - 11 - 1, b.z2 - 1));
+        final int size = 9;
+        final var cb = new CuboidRegion(BlockVector3.at(b.x1 + 1, b.y + b.h - 18 - 1, b.z1 + 1),
+            BlockVector3.at(b.x2 - 1, b.y + b.h - 16 - 1, b.z2 - 1));
         cb.forEach(block -> {
           if ((block.getX() % size == 0) || (block.getZ() % size == 0))
           {

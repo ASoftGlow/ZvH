@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.Particle;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -59,8 +60,24 @@ public abstract class Cosmetics
         NamedTextColor.BLUE, //
         NamedTextColor.DARK_AQUA, //
         NamedTextColor.DARK_PURPLE, //
+        NamedTextColor.WHITE, //
         NamedTextColor.WHITE //
     };
+
+    public static boolean isMaterial(Material mats[], Material mat)
+    {
+      for (int i = 1; i < 9; i++)
+      {
+        if (mats[i] == mat)
+          return true;
+      }
+      return false;
+    }
+
+    public static boolean isMaterial(Material mats[], Item item)
+    {
+      return isMaterial(mats, item.getItemStack().getType());
+    }
 
     public static Material getSolidMaterialFor(Player player)
     {

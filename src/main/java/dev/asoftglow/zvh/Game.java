@@ -149,17 +149,13 @@ public abstract class Game
 
   public static void joinSpectators(Player player)
   {
-    if (MapControl.current_size == null)
-      return;
     leaveWaiters(player);
     player.getInventory().clear();
     player.setItemOnCursor(null);
     player.getInventory().setItem(8, CustomItems.spec_leave);
     player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, -1, 2, false, false, false));
     player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, -1, 255, false, false, false));
-    player.teleport(new Location(player.getWorld(), MapControl.current_size.bounds().getCenter().getBlockX(),
-        MapControl.current_size.bounds().y + MapControl.current_size.bounds().h + 1,
-        MapControl.current_size.bounds().getCenter().getBlockZ(), 0f, 90f));
+    player.teleport(new Location(player.getWorld(), 2, 32, 42, 0f, 90f));
   }
 
   public static void leaveSpectators(Player player)
@@ -172,16 +168,6 @@ public abstract class Game
 
   private static void join(Player player)
   {
-    if (temp_blocked.contains(player.getUniqueId()))
-    {
-      player.sendMessage(Component
-          .text("You left as the first and only zombie, which forces another zombie to be chosen. To prevent abuse, ")
-          .color(NamedTextColor.RED)
-          .append(Component.text("you must wait until next game to play again").decorate(TextDecoration.UNDERLINED))
-          .append(Component.text(".")));
-      Utils.playSound(player, Sound.BLOCK_REDSTONE_TORCH_BURNOUT, 1, 0.8f);
-      return;
-    }
     playing.add(player);
     player.setGameMode(GameMode.SURVIVAL);
     player.setFallDistance(0);
@@ -230,16 +216,16 @@ public abstract class Game
 
   public static void reviveZombie(Player player)
   {
-    // FIXME
     player.getAdvancementProgress(ZvH.revival).awardCriteria("revival");
     Utils.playSoundAllAt(player, Sound.ENTITY_ZOMBIE_VILLAGER_CONVERTED, 0.9f, 1.2f);
     Utils.sendServerMsg(Component.text(player.getName()).decorate(TextDecoration.BOLD)
-        .append(Component.text(" has been become human again!").color(NamedTextColor.GRAY))
-        .hoverEvent(HoverEvent.showText(Component.text("Infect 3 humans as a zombie"))));
+        .append(Component.text(" has become human again!").color(NamedTextColor.GRAY))
+        .hoverEvent(HoverEvent.showText(Component.text("They infected 3 humans as a zombie"))));
 
     joinHumans(player, true);
     player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 3, 1));
     player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 3, 1));
+    player.getInventory().addItem(new ItemStack(Material.LIGHT_GRAY_WOOL, 10));
   }
 
   public static void leaveHumans(Player player)
@@ -567,6 +553,16 @@ public abstract class Game
       break;
 
     case PLAYING:
+      if (temp_blocked.contains(player.getUniqueId()))
+      {
+        player.sendMessage(Component
+            .text("You left as the first and only zombie, which forces another zombie to be chosen. To prevent abuse, ")
+            .color(NamedTextColor.RED)
+            .append(Component.text("you must wait until next game to play again").decorate(TextDecoration.UNDERLINED))
+            .append(Component.text(".")));
+        Utils.playSound(player, Sound.BLOCK_REDSTONE_TORCH_BURNOUT, 1, 0.8f);
+        break;
+      }
       joinZombies(player);
       break;
     }

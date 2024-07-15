@@ -32,7 +32,7 @@ public abstract class CosmeticsMenu
   private static final MenuHolder<ZvH> menu = new MenuHolder<>(ZvH.singleton, 9, "Cosmetics");
   static
   {
-    final var blocks_item = new ItemBuilder(Material.LIGHT_GRAY_WOOL).name("§r§fBlocks").flags(ItemFlag.HIDE_ATTRIBUTES)
+    final var blocks_item = new ItemBuilder(Material.PURPLE_WOOL).name("§r§fBlocks").flags(ItemFlag.HIDE_ATTRIBUTES)
         .build();
     final var particles_item = new ItemBuilder(Material.FIREWORK_STAR).name("§r§fParticle Trails") // TODO
         .flags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ITEM_SPECIFICS).build();
@@ -41,8 +41,8 @@ public abstract class CosmeticsMenu
 
     menu.setButton(1,
         new RedirectItemButton<>(blocks_item, (hm, e) -> new BlocksMenu((Player) e.getWhoClicked()).getInventory()));
-    menu.setButton(3, new ItemButton<>(particles_item));
-    menu.setButton(5, new ItemButton<>(kill_effect_item));
+    //menu.setButton(3, new ItemButton<>(particles_item));
+    //menu.setButton(5, new ItemButton<>(kill_effect_item));
     menu.setButton(8, new CloseButton<>());
   }
 
@@ -80,7 +80,7 @@ public abstract class CosmeticsMenu
             event.getView().close();
             event.getWhoClicked().sendMessage(
                 Component.text("\nClick to open store\n").decorate(TextDecoration.UNDERLINED, TextDecoration.BOLD)
-                    .clickEvent(ClickEvent.openUrl(ZvH.discordLink)));
+                    .clickEvent(ClickEvent.openUrl(ZvH.storeLink)));
           }
           event.getWhoClicked().playSound(click, Sound.Emitter.self());
         }
