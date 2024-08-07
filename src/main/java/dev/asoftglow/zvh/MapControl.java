@@ -23,7 +23,6 @@ import org.bukkit.entity.ThrownPotion;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Slime;
 import org.bukkit.util.Vector;
 
 import com.google.common.collect.Range;
@@ -56,6 +55,7 @@ import dev.asoftglow.zvh.util.WeightedArray;
 @SuppressWarnings("null")
 public abstract class MapControl
 {
+  // #region Subclasses
   public static final class MapFeature implements WeightedArray.Item, MapModifier
   {
     @Getter
@@ -68,10 +68,22 @@ public abstract class MapControl
     final float weight;
     @Getter
     final int min_players;
+    final int ceiling;
 
     public String getType()
     {
       return "Feature";
+    }
+
+    public MapFeature(String name, String description, Material icon, float weight, int min_players,
+        int ceiling_override)
+    {
+      this.name = name;
+      this.description = description;
+      this.icon = icon;
+      this.weight = weight;
+      this.min_players = min_players;
+      this.ceiling = ceiling_override;
     }
 
     public MapFeature(String name, String description, Material icon, float weight)
@@ -81,11 +93,7 @@ public abstract class MapControl
 
     public MapFeature(String name, String description, Material icon, float weight, int min_players)
     {
-      this.name = name;
-      this.description = description;
-      this.icon = icon;
-      this.weight = weight;
-      this.min_players = min_players;
+      this(name, description, icon, weight, min_players, 0);
     }
   }
 
@@ -113,13 +121,15 @@ public abstract class MapControl
       return this.contains(block.getX(), block.getY(), block.getZ());
     }
   }
+  // #endregion
 
   static MapSize current_size = null;
   public static MapFeature current_feature = null;
 
   private static MapBounds b;
-  static MapSize last_size = null;
+  static int last_bounds_hash = -1;
 
+  // #region Maps
   private final static RangeMap<Integer, MapSize> mapSizes = TreeRangeMap.create();
   static
   {
@@ -131,10 +141,10 @@ public abstract class MapControl
   public final static MapFeature[] features = new MapFeature[]
   { //
       new MapFeature("Bridge", "A giant bridge located in the center", Material.LADDER, 0.15f, 3),
-      new MapFeature("Fortress", "A giant fortress located in the center", Material.IRON_DOOR, 0.1f),
+      new MapFeature("Fortress", "A giant fortress located in the center", Material.IRON_DOOR, 0.1f, 0, 10),
       new MapFeature("Bars", "Long, square bars randomly spanning the sky", Material.IRON_BARS, 0.2f),
       new MapFeature("Pillars", "Tall, square pillars randomly spread across the map", Material.QUARTZ_PILLAR, 0.25f),
-      new MapFeature("Grid", "A grid spanning across the sky", Material.OAK_TRAPDOOR, 0.15f, 3),
+      new MapFeature("Grid", "A grid spanning across the sky", Material.OAK_TRAPDOOR, 0.15f, 3, 20),
       new MapFeature("Scatter", "Random blocks in the air", Material.MELON_SEEDS, 0.12f),
       new MapFeature("Nothing", "The default plane of existence", Material.STRUCTURE_VOID, 0.3f)
       /**/ };
@@ -161,6 +171,7 @@ public abstract class MapControl
     orange_filter = new HashSet<BaseBlock>();
     orange_filter.add(BukkitAdapter.adapt(Material.ORANGE_WOOL.createBlockData()).toBaseBlock());
   }
+  // #endregion
 
   public static List<MapFeature> getFeatures(int playerCount)
   {
@@ -247,22 +258,8 @@ public abstract class MapControl
     ZvH.editSession.flushQueue();
 
     // Circles
-    genZSafe(last_size.zombieSpawn, 5);
-    genZSafe(last_size.humanSpawn, 5);
-
-    // Spawn protection
-    for (var e : ZvH.world.getEntitiesByClass(Slime.class))
-    {
-      e.remove();
-    }
-
-    var slime = ZvH.world.createEntity(getLocation(ZvH.world, current_size.zombieSpawn), Slime.class);
-    slime.setSize(8);
-    slime.setInvulnerable(true);
-    slime.setAI(false);
-    slime.setInvisible(true);
-    ZvH.humansTeam.addEntity(slime);
-    slime.spawnAt(slime.getLocation());
+    genZSafe(current_size.zombieSpawn, 5);
+    genZSafe(current_size.humanSpawn, 5);
   }
 
   private static void clearBuildingSpace()
@@ -275,7 +272,8 @@ public abstract class MapControl
 
   static void resetMap()
   {
-    if (last_size != null && last_size != current_size)
+    var current_bounds_hash = getBoundsHash(current_size, current_feature);
+    if (b != null && last_bounds_hash != current_bounds_hash)
     {
       // clear past junk
       clearBuildingSpace();
@@ -284,12 +282,18 @@ public abstract class MapControl
           (Region) new CuboidRegion(BlockVector3.at(b.x1 + 1, b.y, b.z1 + 1), BlockVector3.at(b.x2 - 1, b.y, b.z2 - 1)),
           BukkitAdapter.asBlockType(Material.AIR).getDefaultState());
     }
+
     b = current_size.bounds;
+    if (current_feature != null && current_feature.ceiling > 0)
+    {
+      b = new MapBounds(b.x1, b.z1, b.x2, b.z2, b.y, b.h - current_feature.ceiling);
+    }
+
     clearBuildingSpace();
 
-    if (last_size != current_size)
+    if (last_bounds_hash != current_bounds_hash)
     {
-      last_size = current_size;
+      last_bounds_hash = current_bounds_hash;
       resetBorders();
     }
 
@@ -450,5 +454,11 @@ public abstract class MapControl
   {
     drawCircle(pos.getBlockX(), pos.getBlockY() - 1, pos.getBlockZ(), radius, Material.LIGHT_GRAY_CONCRETE_POWDER,
         radius * radius * 3);
+  }
+
+  static int getBoundsHash(MapSize size, MapFeature feature)
+  {
+    // good enough
+    return size.bounds.hashCode() + (feature == null ? 0 : feature.ceiling);
   }
 }

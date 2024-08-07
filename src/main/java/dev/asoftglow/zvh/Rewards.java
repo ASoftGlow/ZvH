@@ -4,6 +4,8 @@ import java.util.Collection;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 
 import dev.asoftglow.zvh.util.Utils;
@@ -18,26 +20,45 @@ import net.kyori.adventure.text.format.TextDecoration;
  */
 public abstract class Rewards
 {
-  public static final int COINS_JOIN = 10;
-  public static final int COINS_ZOMBIE_KILL = 3;
-  public static final int COINS_HUMAN_KILL = 10;
-  public static final int COINS_HUMAN_ASSIST = 6;
-  public static final int COINS_HUMAN_ALIVE = 1;
-  public static final int COINS_HUMAN_WIN = 25;
-  public static final int COINS_LAST_HUMAN_WIN = 35;
-  public static final int COINS_ZOMBIE_WIN = 7;
-  public static final int COINS_FIRST_ZOMBIE_WIN = 15;
+  public static int COINS_JOIN;
+  public static int COINS_ZOMBIE_KILL;
+  public static int COINS_HUMAN_KILL;
+  public static int COINS_HUMAN_ASSIST;
+  public static int COINS_HUMAN_ALIVE;
+  public static int COINS_HUMAN_WIN;
+  public static int COINS_LAST_HUMAN_WIN;
+  public static int COINS_ZOMBIE_WIN;
+  public static int COINS_FIRST_ZOMBIE_WIN;
 
-  public static final int XP_ZOMBIE_KILL = 10;
-  public static final int XP_HUMAN_KILL = 10;
-  public static final int XP_HUMAN_ASSIST = 2;
-  public static final int XP_HUMAN_WIN = 2;
-  public static final int XP_LAST_HUMAN_WIN = 2;
-  public static final int XP_ZOMBIE_WIN = 2;
-  public static final int XP_FIRST_ZOMBIE_WIN = 2;
+  public static int XP_ZOMBIE_KILL;
+  public static int XP_HUMAN_KILL;
+  public static int XP_HUMAN_ASSIST;
+  public static int XP_HUMAN_WIN;
+  public static int XP_LAST_HUMAN_WIN;
+  public static int XP_ZOMBIE_WIN;
+  public static int XP_FIRST_ZOMBIE_WIN;
 
   public static final double HEALTH_ZOMBIE_KILL = 2d;
   public static final double HEALTH_ZOMBIE_KILL_PROJECTILE = 1d;
+
+  public static boolean load(FileConfiguration config)
+  {
+    for (var p : config.getConfigurationSection("rewards").getValues(true).entrySet())
+    {
+      if (p.getValue() instanceof ConfigurationSection)
+        continue;
+      try
+      {
+        Rewards.class.getDeclaredField(p.getKey().replace('.', '_').replaceAll(" ", "_").toUpperCase()).setInt(null,
+            ((Integer) p.getValue()).intValue());
+      } catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e)
+      {
+        e.printStackTrace();
+        return false;
+      }
+    }
+    return true;
+  }
 
   public static int calcLvl(int xp)
   {

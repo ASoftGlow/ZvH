@@ -20,7 +20,6 @@ import dev.asoftglow.zvh.commands.MusicCommands;
 import dev.asoftglow.zvh.commands.SpeciesClassCommands;
 import dev.asoftglow.zvh.menus.ClassSelectionMenu;
 import dev.asoftglow.zvh.menus.CosmeticsMenu;
-import dev.asoftglow.zvh.menus.MapModifierMenu;
 import dev.asoftglow.zvh.menus.ShopMenu;
 import dev.asoftglow.zvh.util.Logger;
 import dev.asoftglow.zvh.util.Utils;
@@ -51,8 +50,6 @@ public class ZvH extends JavaPlugin
    */
   public static String CMD = null;
 
-  public static final String discordLink = "https://discord.gg/mzj4EvBbhM";
-  public static final String storeLink = "https://store.zvh.asoftglow.dev";
   public static final PlainTextComponentSerializer plainSerializer = PlainTextComponentSerializer.plainText();
   private static final TextComponent discordMsgPrefix = Component.text("[Discord]").decorate(TextDecoration.BOLD)
       .hoverEvent(HoverEvent.showText(Component.text("Sent from Discord"))).color(NamedTextColor.BLUE);
@@ -99,6 +96,8 @@ public class ZvH extends JavaPlugin
 
     Moderation.setConfigFile(getDataFolder().toPath().resolve("muted.json").toFile());
     SpeciesClassManager.init(getDataFolder().toPath().resolve("classes"));
+
+    Rewards.load(getConfig());
 
     if (!isDev)
     {
@@ -274,10 +273,6 @@ public class ZvH extends JavaPlugin
           ClassSelectionMenu.showTo(player);
           return true;
 
-        case "modifier":
-          MapModifierMenu.showTo(player);
-          return true;
-
         case "join":
           if (args.length == 1 && player.isOp())
           {
@@ -293,7 +288,8 @@ public class ZvH extends JavaPlugin
           return true;
 
         case "discord":
-          player.sendMessage(Component.text("Click to visit").clickEvent(ClickEvent.openUrl(discordLink)));
+          player.sendMessage(
+              Component.text("Click to visit").clickEvent(ClickEvent.openUrl(getConfig().getString("discord.link"))));
           return true;
 
         case "vanish":
@@ -313,7 +309,10 @@ public class ZvH extends JavaPlugin
           {
             target = Bukkit.getPlayerExact(args[0]);
             if (target == null)
+            {
+              player.sendMessage("That player doesn't exist.");
               return false;
+            }
           }
           final var pl = player;
           final var tar = target;
@@ -333,9 +332,8 @@ public class ZvH extends JavaPlugin
           CosmeticsMenu.showTo(player);
           return true;
 
-        case "vote":
-          MapModifierMenu.showTo(player);
-          return true;
+        case "reload-config":
+          return Rewards.load(getConfig());
 
         default:
           break;

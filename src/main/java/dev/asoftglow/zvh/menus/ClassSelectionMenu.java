@@ -52,7 +52,7 @@ public class ClassSelectionMenu extends MenuHolder<ZvH>
         Rewards.changeCoins(player, -zClass.price, "shopping");
       }
       player.clearActivePotionEffects();
-      player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 5));
+      player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 4));
       zClass.giveTo(player);
       player.getInventory().setItem(8, CustomItems.shop_open);
       shouldLeave.remove(player);

@@ -21,7 +21,7 @@ public abstract class GuideBook
           .append(title("Intro"))
           .append(Component.text("As a human, stay alive. As a zombie, infect the humans. Simple as that.\nThis minigame is based off of a the now-extinct minigame on the now extict `Full` server that bore the same name.\nCheck out ")
           .append(cmd("rules")).append(Component.text(" & join the "))
-          .append(Component.text("Discord").decorate(TextDecoration.UNDERLINED).clickEvent(ClickEvent.openUrl(ZvH.discordLink)))),
+          .append(Component.text("Discord").decorate(TextDecoration.UNDERLINED).clickEvent(ClickEvent.openUrl(ZvH.singleton.getConfig().getString("discord.link"))))),
       Component.empty().append(title("Commands"))
           .append(subtitle("Global"))
           .append(cmd("guide", "open this guide"))

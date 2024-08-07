@@ -18,15 +18,15 @@ commands:
   resetmap:
     permission: admin.manage.serverpermission
   shop:
+    aliases: s
     description: Opens the shop while in-game
   die:
     aliases: kablooey
     description: makes you die
   music:
     description: Base command to control music
-  modifier:
-    permission: admin.manage.serverpermission
   join:
+    aliases: j
     description: Join the current game, if one is running, otherwise join the queue
   guide:
     description: Opens the guide book
@@ -36,12 +36,11 @@ commands:
     permission: admin.manage.serverpermission
   mutelist:
     permission: admin.manage.serverpermission
+  reload-config:
+    permission: admin.manage.serverpermission
   rules:
   discord:
   stats:
     description: Display in-game stats about a player
-  vanish:
-    permission: admin.manage.serverpermission
   cosmetics:
     desription: Customize your in-game cosmetics
-  vote:

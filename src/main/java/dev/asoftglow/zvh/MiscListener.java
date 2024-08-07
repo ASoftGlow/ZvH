@@ -41,6 +41,7 @@ import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Vector;
 
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
 import net.kyori.adventure.text.Component;
@@ -332,6 +333,12 @@ public class MiscListener implements Listener
       {
         e.getPlayer().sendActionBar(Component.text("Nothing..."));
       }
+      break;
+    case CAUGHT_ENTITY:
+    if (e.getCaught() != null)
+    {
+      e.getCaught().setVelocity(e.getCaught().getVelocity().add(e.getPlayer().getLocation().subtract(e.getCaught().getLocation()).toVector().divide(new Vector(5, 5, 5))));
+    }
       break;
     default:
       break;

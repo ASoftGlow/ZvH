@@ -1,6 +1,12 @@
 discord:
-  bot-token: "?"
+  bot-token:
+  link:
 database:
   url:
   username:
   password:
+store:
+  link:
+
+rewards:
+  

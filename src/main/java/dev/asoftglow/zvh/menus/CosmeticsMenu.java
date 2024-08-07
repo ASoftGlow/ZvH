@@ -80,7 +80,7 @@ public abstract class CosmeticsMenu
             event.getView().close();
             event.getWhoClicked().sendMessage(
                 Component.text("\nClick to open store\n").decorate(TextDecoration.UNDERLINED, TextDecoration.BOLD)
-                    .clickEvent(ClickEvent.openUrl(ZvH.storeLink)));
+                    .clickEvent(ClickEvent.openUrl(ZvH.singleton.getConfig().getString("store.link"))));
           }
           event.getWhoClicked().playSound(click, Sound.Emitter.self());
         }
@@ -186,7 +186,7 @@ public abstract class CosmeticsMenu
           {
             event.getWhoClicked().sendMessage(
                 Component.text("\nClick to open store\n").decorate(TextDecoration.UNDERLINED, TextDecoration.BOLD)
-                    .clickEvent(ClickEvent.openUrl(ZvH.discordLink)));
+                    .clickEvent(ClickEvent.openUrl(ZvH.singleton.getConfig().getString("discord.link"))));
           }
           event.getWhoClicked().playSound(click, Sound.Emitter.self());
         }
