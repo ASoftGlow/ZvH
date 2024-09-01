@@ -508,7 +508,7 @@ public abstract class Game
 
   public static Set<Player> pickZombies(Set<Player> players)
   {
-    int num_chosen = players.size() / 6 + 1;
+    int num_chosen = players.size() / 4 + 1;
     var options = new HashSet<>(players);
 
     var it = last_zombies.iterator();
